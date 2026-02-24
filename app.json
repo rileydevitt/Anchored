@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Anchored",
+    "slug": "anchored",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#F9FAFB"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F9FAFB"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

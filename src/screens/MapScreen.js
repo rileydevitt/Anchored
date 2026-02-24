@@ -1,0 +1,107 @@
+import React from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { colors, radius, spacing } from '../constants/theme';
+import { nearbyAlerts } from '../data/mockData';
+
+export default function MapScreen() {
+  return (
+    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Nearby Civic Issues</Text>
+      <Text style={styles.subtitle}>Map integration is the next milestone. This is a data-ready list fallback.</Text>
+
+      <View style={styles.fakeMap}>
+        <MaterialIcons name="map" size={36} color={colors.halifaxBlue} />
+        <Text style={styles.fakeMapText}>Interactive map coming next</Text>
+      </View>
+
+      {nearbyAlerts.map((alert) => (
+        <View key={alert.id} style={styles.item}>
+          <Text style={styles.itemTitle}>{alert.title}</Text>
+          <Text style={styles.itemBody}>{alert.description}</Text>
+          <Text style={styles.itemMeta}>{alert.meta}</Text>
+        </View>
+      ))}
+
+      <Pressable style={styles.captureButton}>
+        <MaterialIcons name="add-a-photo" size={20} color="#fff" />
+        <Text style={styles.captureText}>Capture Photo + Redirect to 311</Text>
+      </Pressable>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: 110,
+    gap: spacing.md,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  fakeMap: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.card,
+    backgroundColor: '#EFF6FF',
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  fakeMapText: {
+    color: colors.halifaxBlue,
+    fontWeight: '700',
+  },
+  item: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  itemTitle: {
+    fontSize: 15,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  itemBody: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  itemMeta: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  captureButton: {
+    marginTop: spacing.sm,
+    minHeight: 52,
+    backgroundColor: colors.halifaxBlue,
+    borderRadius: radius.card,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  captureText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+});
