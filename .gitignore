@@ -1,17 +1,38 @@
+# Node / package managers
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Expo
 .expo/
 .expo-shared/
 
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-.DS_Store
-.env
-.env.*
-
+# React Native / Expo prebuild outputs
 android/
 ios/
-web-build/
+
+# Build outputs
 dist/
 build/
+web-build/
+coverage/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Firebase local tooling files
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp

@@ -5,9 +5,32 @@ import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors, spacing, radius } from '../constants/theme';
 
-export default function AddressSetupScreen({ onComplete, initialAddress = '' }) {
+export default function AddressSetupScreen({
+  onComplete,
+  initialAddress = '',
+  initialNotificationsEnabled = true,
+}) {
   const [address, setAddress] = useState(initialAddress);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(initialNotificationsEnabled);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleComplete = async () => {
+    if (!address.trim()) {
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      await onComplete({ address: address.trim(), notificationsEnabled });
+    } catch (saveError) {
+      setError(saveError.message || 'Failed to save address.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <View style={styles.root}>
@@ -45,8 +68,10 @@ export default function AddressSetupScreen({ onComplete, initialAddress = '' }) 
       <PrimaryButton
         title="Continue to Dashboard"
         disabled={!address.trim()}
-        onPress={() => onComplete({ address: address.trim(), notificationsEnabled })}
+        onPress={handleComplete}
+        loading={saving}
       />
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
 }
@@ -110,5 +135,9 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 12,
     marginTop: 1,
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 13,
   },
 });

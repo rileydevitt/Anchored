@@ -1,715 +1,107 @@
-Product Requirements Document (PRD)
-Product Name
+Anchored PRD Checklist
 
-Anchored
-A civic utility app for Halifax residents
+Status legend
+- [x] Done
+- [ ] Not done / pending
+- [~] Partial
 
-Document Version
+Project setup and foundation
+- [x] Expo project scaffolded
+- [x] JavaScript React Native app structure in place
+- [x] Core design language from home.html translated into app UI tokens/components
+- [x] Base navigation shell with bottom tabs (Home, Map, Services, Profile)
 
-v1.0 (Draft)
+Authentication module
+- [x] User registration flow (email + password)
+- [x] User login flow (email + password)
+- [x] User logout flow
+- [x] Session persistence across app restarts
+- [x] Clear error handling for invalid credentials/auth failures
+- [ ] Password reset flow
+- [ ] Supabase Auth integration (current implementation uses Firebase Auth)
 
-Product Owner
+User profile and settings
+- [x] Save/update primary address
+- [x] Notification preference toggle persisted per user
+- [~] Settings UI exists (location/camera toggles are currently UI-only)
+- [ ] Real permission handling/status for location
+- [ ] Real permission handling/status for camera
+- [ ] Theme preference support
 
-Riley (Project)
+Service reminders (core utility)
+- [x] Upcoming service schedule UI on Home/Services screens
+- [~] Reminder enable/disable UX (state persists, but no native notification scheduling yet)
+- [ ] Address/service-zone based schedule fetch from Halifax data
+- [ ] Push notification scheduling for service reminders
+- [ ] Reminder timing customization (night before/morning of)
 
-Platform
+Civic issues awareness
+- [x] Nearby alerts list UI scaffold on Home and Map screens
+- [ ] Fetch live civic issue/open-data records
+- [ ] Proximity filtering by user location/address radius
+- [ ] Save/bookmark issues
+- [ ] Real map-marker interactions tied to issue data
 
-Cross-platform mobile app (iOS + Android) using React Native
-
-1. Overview
-Product Summary
-
-Anchored is a cross-platform civic utility app designed to help Halifax residents manage municipal services and stay informed about local civic issues. The app centralizes fragmented municipal information—such as garbage collection schedules, street closures, and civic issue data—into a personalized, location-aware mobile experience.
-
-Problem Statement
-
-Municipal service information in Halifax is currently spread across multiple sources (e.g., open data portals and the 311 system). Residents must manually search for updates and receive little to no personalization. This results in:
-
-Missed waste collection and service dates
-
-Low awareness of nearby civic disruptions/issues
-
-No easy way to track relevant local issues in one place
-
-Value Proposition
-
-Anchored provides a single, personalized civic dashboard for Halifax residents by combining:
-
-Service reminders (especially waste collection)
-
-Nearby civic issue awareness
-
-Saved issue tracking
-
-Location-aware map visualization
-
-Push notifications and native integrations
-
-2. Goals and Success Criteria
-Primary Goals
-
-Help users avoid missing municipal service events (especially waste collection)
-
-Increase awareness of nearby civic issues and disruptions
-
-Provide a simple, centralized interface for civic information relevant to the user’s address/location
-
-Secondary Goals
-
-Improve user convenience through reminders and calendar-style scheduling
-
-Support issue exploration via map-based interaction
-
-Enable photo-assisted issue reporting handoff to official 311 channels
-
-Success Metrics (MVP)
-
-% of users who complete onboarding (auth + address setup)
-
-% of users enabling notifications
-
-Reminder engagement rate (notification open / tap-through)
-
-Weekly active users viewing map/issues
-
-of saved reminders per user
-of issue marker interactions (tap to details)
-
-Crash-free sessions on iOS/Android
-
-3. Target Audience
-Primary Users
-
-Halifax residents who:
-
-Are responsible for household municipal services (e.g., waste collection)
-
-Need awareness of road closures, construction, or local civic issues
-
-Want reminders and centralized civic updates
-
-User Characteristics
-
-Residents with recurring municipal responsibilities
-
-Commuters affected by closures/construction
-
-Users who prefer mobile notifications and map-based browsing
-
-4. User Needs
-
-Users need:
-
-Reliable reminders for waste collection and municipal services
-
-Calendar-like awareness of upcoming service events
-
-Awareness of nearby civic issues based on location
-
-A simple way to track issues they saved or reported
-
-Personalized civic information tied to their address and/or current location
-
-5. Scope
-In Scope (MVP)
-
-Email/password authentication (Supabase)
-
-User profile and address setup
-
-Halifax Open Data API integration for:
-
-Waste collection schedules / service zones
-
-Street closures / construction data
-
-Public civic issue datasets (if available)
-
-Home dashboard for reminders and relevant civic updates
-
-Map view with civic issue markers
+Map integration
+- [~] Map screen scaffold exists (placeholder card + list fallback)
+- [ ] Real map library integration (Apple/Google via RN map abstraction)
+- [ ] Display live user location (permission-aware)
+- [ ] Custom issue markers
+- [ ] Marker tap -> issue details navigation
+- [ ] Radius filtering controls
 
 Issue details screen
-
-Push notifications for reminders and updates
-
-Device location for nearby issue filtering
-
-Camera integration for issue-photo capture (temporary save + redirect to 311 website)
-
-Local storage for preferences/settings
-
-Database storage for user profile/reminders/saved items
-
-Out of Scope (Initial MVP)
-
-In-app issue submission directly to Halifax 311 (full API workflow)
-
-Social/community features (comments, voting, sharing)
-
-Web app version
-
-Advanced analytics dashboards for users
-
-Offline-first full data sync
-
-Route navigation / turn-by-turn directions
-
-6. Product Requirements
-6.1 Functional Requirements
-A. Authentication Module
-
-Description: Users must authenticate via email and password.
-
-Requirements
-
-Users can register with email/password
-
-Users can log in/log out
-
-Users can remain signed in across sessions
-
-Authentication managed with Supabase Auth
-
-Password reset flow (recommended for MVP if time permits)
-
-Acceptance Criteria
-
-New user can create account and access app
-
-Existing user can log in and return to dashboard
-
-Invalid credentials return clear error message
-
-B. User Profile & Settings
-
-Description: Users can manage address, notifications, and permissions.
-
-Requirements
-
-User can enter/update primary address
-
-User can manage notification settings (on/off)
-
-User can manage permission prompts (location, camera, notifications)
-
-Optional theme/UI preferences storage
-
-Acceptance Criteria
-
-Address is saved and used to personalize service/reminder data
-
-Notification toggle persists after app restart
-
-Permission status is reflected in settings UI
-
-C. Service Reminders (Core MVP Feature)
-
-Description: Personalized reminders for waste collection and municipal services.
-
-Requirements
-
-App fetches waste/service schedule based on user’s address/service zone
-
-User can view upcoming service schedule
-
-User can enable/disable reminders
-
-App schedules push notifications for upcoming services
-
-Reminder timing configurable (e.g., night before / morning of) if time permits
-
-Acceptance Criteria
-
-User sees next service dates on Home screen
-
-Notifications are scheduled correctly based on service data
-
-Changing address updates schedule and reminders
-
-D. Civic Issues Awareness
-
-Description: Users can view nearby civic issues and disruptions.
-
-Requirements
-
-App fetches civic issue/open-data records (e.g., closures, construction)
-
-Issues are filterable by proximity to user (location-based radius)
-
-Issues can be displayed in list and/or map marker format
-
-Users can save/bookmark issues for tracking (if included in MVP)
-
-Acceptance Criteria
-
-Nearby issues load using current location or address
-
-User can tap an issue marker to view details
-
-Basic filtering (distance/type if implemented) updates results correctly
-
-E. Map Integration
-
-Description: Interactive map showing user location and civic issue markers.
-
-Requirements
-
-Use platform-appropriate map integration:
-
-Google Maps (Android)
-
-Apple Maps (iOS) / map abstraction via React Native library
-
-Display user’s live location (with permission)
-
-Display civic issues as custom markers
-
-Marker tap opens issue details
-
-Filter displayed issues by radius from user
-
-Acceptance Criteria
-
-Map loads on both iOS and Android
-
-User location displays when permission granted
-
-Marker selection opens correct issue detail view
-
-F. Issue Details Screen
-
-Description: Detailed view for a selected civic issue.
-
-Requirements
-
-Show issue title/type
-
-Show status (if available)
-
-Show location/address/coordinates (if available)
-
-Show description and timestamp/update time (if available)
-
-Link out to official source / 311 page where applicable
-
-Acceptance Criteria
-
-Selected marker/list item loads the correct issue details
-
-Missing fields are handled gracefully (no crashes)
-
-G. Issue Reporting Photo Flow (Handoff Flow)
-
-Description: User can capture a photo and be redirected to the official 311 site.
-
-Requirements
-
-Map screen includes “+” action
-
-User is prompted to open camera
-
-User captures photo
-
-Photo is temporarily saved locally
-
-App redirects user to Halifax 311 website for issue reporting completion
-
-Acceptance Criteria
-
-Camera opens successfully with permission
-
-Captured photo is temporarily stored
-
-Redirect to 311 webpage succeeds
-
-6.2 Non-Functional Requirements
-Performance
-
-Initial screen load should be responsive on typical mobile devices
-
-Cached civic/service data should reduce unnecessary repeated requests
-
-Map interactions should remain smooth with moderate marker counts
-
-Reliability
-
-App should handle API failures gracefully with fallback messaging
-
-Notification scheduling should be robust to app restarts (where platform behavior allows)
-
-Security & Privacy
-
-Secure auth via Supabase
-
-Store sensitive data in secure storage where appropriate (tokens/session data)
-
-Location/camera permissions requested transparently and only when needed
-
-Only collect data necessary for app functionality
-
-Usability
-
-Simple onboarding and settings flow
-
-Clear reminders and actionable home dashboard
-
-Readable map markers and issue details
-
-Cross-Platform Compatibility
-
-Consistent core experience across iOS and Android
-
-Account for map SDK/platform differences and notification behavior differences
-
-7. Data & Integrations
-7.1 External APIs / Data Sources
-Halifax Open Data (planned)
-
-Waste collection schedules and service zones
-
-Street closures / construction data
-
-Public civic issue datasets (where available)
-
-Other External Systems
-
-Halifax 311 website (redirect for issue reporting completion)
-
-7.2 Authentication / Backend
-Supabase
-
-Authentication (email/password)
-
-Database storage for user-related data
-
-7.3 Native Device Features
-
-Camera (issue photo capture)
-
-Push Notifications (reminders/updates)
-
-Location Services (nearby issue filtering)
-
-8. Data Storage Strategy
-Local Storage (Simple Data)
-
-Use local storage for lightweight settings and temporary app state:
-
-UI preferences (e.g., theme if implemented)
-
-Notification settings
-
-Temporarily saved issue photo
-
-Cached recent civic/service responses (optional)
-
-Database Storage (Complex Data)
-
-Store in Supabase / backend database:
-
-User credentials/auth records (via Supabase Auth)
-
-User profile info (including address)
-
-Saved service reminders / reminder settings
-
-Saved/bookmarked civic issues (if implemented)
-
-User-specific app preferences requiring sync across devices (optional)
-
-9. App Architecture
-High-Level Architecture
-Presentation Layer (UI)
-
-Reusable components:
-
-Cards (service reminders, issue summaries)
-
-Lists (upcoming services, saved issues)
-
-Map markers (custom civic issue markers)
-
-Forms (auth, settings, address input)
-
-Navigation Layer
-
-Planned app sections:
-
-Authentication Flow
-
-Login
-
-Registration
-
-Main App
-
-Home (dashboard: reminders + relevant civic items)
-
-Map (nearby civic issues + issue reporting redirect)
-
-Settings/Profile (address, permissions, notifications, theme optional)
-
-Data Layer
-
-API service layer (Halifax Open Data fetch + transform)
-
-Local caching layer
-
-Database service layer (Supabase)
-
-Notification scheduling service
-
-Location service wrapper
-
-Camera/photo temporary storage handler
-
-10. User Flows
-10.1 Authentication & Setup Flow
-
-User opens app
-
-Registers or logs in
-
-Navigates to Settings/Profile
-
-Enters or updates address
-
-Grants permissions (notifications/location as needed)
-
-App loads personalized service reminders and local civic issues
-
-10.2 Reminder Flow
-
-User views service schedule
-
-Enables reminders/notifications
-
-App schedules reminders based on service dates
-
-User receives push notification at scheduled time
-
-10.3 Map Flow
-
-User opens Map screen
-
-App loads nearby civic issues based on current location/address
-
-User taps marker
-
-App opens Issue Details screen
-
-10.4 Issue Reporting (Photo) Flow
-
-User taps “+” on Map screen
-
-App prompts for camera access
-
-User captures photo
-
-Photo is saved temporarily
-
-App redirects user to Halifax 311 website to complete reporting
-
-11. Screens (Planned)
-MVP Screens
-
-Login Screen
-
-Registration Screen
-
-Home Dashboard
-
-Upcoming service reminders
-
-Relevant civic updates (optional list summary)
-
-Map Screen
-
-Civic issues in user area
-
-Marker interactions
-
-“+” issue reporting entry point
-
-Issue Details Screen
-
-User Profile / Settings Screen
-
-Address
-
-Notification preferences
-
-Permissions
-
-Optional theme
-
-12. Prioritization
-Feature Priority Order
-P0 (Must Have / MVP Core)
-
-Authentication (Supabase)
-
-Address-based personalization
-
-Waste/service reminder view
-
-Notification scheduling for reminders
-
-Basic civic issue map with markers
-
-Issue details screen
-
-Location-based filtering (basic)
-
-Settings/profile screen
-
-P1 (Should Have)
-
-Saved/bookmarked issues
-
-Enhanced filtering by issue type/radius
-
-Temporary photo capture + redirect to 311 flow
-
-Improved caching and retry/error states
-
-P2 (Nice to Have)
-
-Theme support
-
-More advanced reminder customization
-
-Richer issue tracking history
-
-Deeper analytics/engagement features
-
-Implementation strategy: Deliver strong and high-impact utility first (garbage/service reminders), then expand into broader civic issue awareness and additional conveniences.
-
-13. Key Technical Challenges & Risks
-1) Frequently Updated Civic Data
-
-Risk: Data freshness, schema changes, rate limits, inconsistent update cadence
-Mitigation: Caching + refresh strategy, defensive parsing, timestamp display, retry/error handling
-
-2) Location-Based Filtering Accuracy
-
-Risk: Inaccurate coordinates, permission denial, geocoding/address mismatch
-Mitigation: Fallback to saved address, configurable radius, clear permission UX, validation of coordinate data
-
-3) Cross-Platform Map Behavior Differences
-
-Risk: Marker rendering/interaction inconsistencies between iOS and Android
-Mitigation: Use consistent map abstraction library, test on both platforms early, simplify marker interactions
-
-4) Notification Scheduling from Time-Based Data
-
-Risk: Time zone handling, platform scheduling differences, stale schedules after updates
-Mitigation: Store normalized event times, reschedule on data refresh/address change, test edge cases and DST
-
-14. Milestones & Timeline
-Week 1 (Milestone 1 – Due Feb 9)
-
-Finalize app concept and problem statement
-
-Define target audience
-
-Identify required APIs and native features
-
-Design app architecture and navigation flow
-
-Create initial mockups (login, home, map, settings)
-
-Submit Project Milestone 1 proposal
-
-Week 2 (Feb 10 – Feb 16)
-
-Set up React Native project and development environment
-
-Implement basic navigation
-
-Implement authentication functionality
-
-Week 3 (Feb 17 – Feb 23)
-
-Integrate Halifax Open Data API
-
-Implement data fetching, filtering, and display
-
-Store simple user preferences locally
-
-Week 4 (Feb 24 – Mar 2)
-
-Implement garbage and service reminder logic
-
-Add notification scheduling
-
-Integrate database storage
-
-Week 5 (Mar 3 – Mar 9) — Milestone 2 Due
-
-Integrate maps and live location services
-
-Add custom markers / routes (if applicable)
-
-Prepare demo video and progress report
-
-Submit code, report, and video for Milestone 2
-
-Week 6 (Mar 10 – Mar 16)
-
-Expand native feature usage
-
-Refine database usage for complex data
-
-Improve API integration and error handling
-
-Week 7 (Mar 17 – Mar 23)
-
-UI/UX polish
-
-Test on Android and iOS
-
-Bug fixes
-
-Week 8 (Mar 24 – Mar 30)
-
-Final feature completion
-
-Performance testing
-
-Screenshot collection for final report
-
-Draft final report sections
-
-Week 9 (Mar 31 – Apr 6) — Milestone 3 Due
-
-Final testing and deployment build
-
-Prepare live demo
-
-Finalize and submit report
-
-Deliver in-class presentation
-
-Submit final source code
-
-15. MVP Acceptance Criteria (Release Readiness)
-
-Anchored MVP is considered ready for milestone/demo when:
-
-Users can register/login successfully
-
-Users can save an address and receive personalized service schedule data
-
-Home screen shows upcoming service reminders
-
-Notifications can be enabled and scheduled for service reminders
-
-Map screen displays nearby civic issues with markers
-
-Users can tap markers and view issue details
-
-App runs on both iOS and Android test devices with no critical crashes
-
-Core error states are handled (API failure, no location permission, no data)
+- [ ] Dedicated issue details screen
+- [ ] Field rendering for title/type/status/location/description/timestamp
+- [ ] Graceful handling of missing fields
+- [ ] Link-out to official source/311 where applicable
+
+Issue reporting photo flow (handoff)
+- [~] Entry-point CTA exists on Map/Home
+- [ ] Camera permission + launch flow
+- [ ] Capture and temporary local photo save
+- [ ] Redirect to Halifax 311 website after capture
+
+Data and backend integrations
+- [x] Firebase project wired in app
+- [x] Firestore user document persistence (`users/{uid}`)
+- [x] Firestore rules file created (`firestore.rules`)
+- [ ] Firestore rules deployed in Firebase Console
+- [ ] Halifax Open Data API integration
+- [ ] Supabase backend/database integration (PRD baseline target)
+
+Native features
+- [ ] Push notifications (Expo notifications)
+- [ ] Device location services integration
+- [ ] Camera integration
+
+Planned MVP screens
+- [x] Auth screen (login/register mode)
+- [x] Home dashboard screen
+- [~] Map screen (placeholder scaffold)
+- [ ] Issue details screen
+- [x] Profile/settings screen
+
+P0 priority status (MVP core)
+- [~] Authentication (implemented, but Firebase instead of Supabase)
+- [x] Address capture/personalization base flow
+- [~] Waste/service reminder view (UI done, real data not wired)
+- [ ] Notification scheduling for reminders
+- [ ] Basic civic issue map with real markers
+- [ ] Issue details screen
+- [ ] Location-based filtering
+- [x] Settings/profile screen
+
+MVP release-readiness checklist
+- [x] Users can register/login successfully
+- [x] Users can save an address
+- [~] Home shows upcoming reminder content (currently mock/static data)
+- [ ] Notifications enabled and scheduled from live service data
+- [ ] Map displays nearby live civic issues with markers
+- [ ] Marker tap opens issue details
+- [~] App runs on iOS/Android in Expo development flow (environment-specific setup may still be needed)
+- [~] Core error states partially handled (auth/profile save done; API/location/no-data flows pending)
+
+Notes
+- The app currently follows the PRD flow and UI direction, but several "data + native" milestones are still scaffold-level.
+- If desired, next high-impact step is integrating Halifax Open Data + map markers + issue details to close the biggest P0 gaps.

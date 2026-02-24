@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import InputField from '../components/InputField';
@@ -9,6 +9,8 @@ export default function AuthScreen({ mode, setMode, onSubmit }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const isRegister = mode === 'register';
   const canContinue = useMemo(() => {
@@ -21,14 +23,30 @@ export default function AuthScreen({ mode, setMode, onSubmit }) {
     return true;
   }, [email, password, fullName, isRegister]);
 
-  const submit = () => {
+  useEffect(() => {
+    setError('');
+  }, [mode]);
+
+  const submit = async () => {
     if (!canContinue) {
       return;
     }
-    onSubmit({
-      name: isRegister ? fullName.trim() : 'Halifax Resident',
-      email: email.trim(),
-    });
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await onSubmit({
+        mode,
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password,
+      });
+    } catch (submitError) {
+      setError(submitError.message || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -73,7 +91,10 @@ export default function AuthScreen({ mode, setMode, onSubmit }) {
           title={isRegister ? 'Create Account' : 'Sign In'}
           onPress={submit}
           disabled={!canContinue}
+          loading={loading}
         />
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </View>
 
       <View style={styles.switcher}>
@@ -137,5 +158,11 @@ const styles = StyleSheet.create({
     color: colors.halifaxBlue,
     fontWeight: '700',
     fontSize: 14,
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
   },
 });

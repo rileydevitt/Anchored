@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
@@ -8,6 +8,41 @@ export default function ProfileScreen({ profile, onSaveAddress, onLogout }) {
   const [addressDraft, setAddressDraft] = useState(profile.address || '');
   const [locationEnabled, setLocationEnabled] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setAddressDraft(profile.address || '');
+  }, [profile.address]);
+
+  const handleSaveAddress = async () => {
+    if (!addressDraft.trim()) {
+      return;
+    }
+
+    setSavingAddress(true);
+    setError('');
+    try {
+      await onSaveAddress(addressDraft.trim());
+    } catch (saveError) {
+      setError(saveError.message || 'Unable to save address.');
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    setError('');
+    try {
+      await onLogout();
+    } catch (logoutError) {
+      setError(logoutError.message || 'Unable to log out right now.');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <View style={styles.root}>
@@ -23,8 +58,9 @@ export default function ProfileScreen({ profile, onSaveAddress, onLogout }) {
         />
         <PrimaryButton
           title="Save Address"
-          onPress={() => onSaveAddress(addressDraft.trim())}
+          onPress={handleSaveAddress}
           disabled={!addressDraft.trim()}
+          loading={savingAddress}
           secondary
         />
       </View>
@@ -34,7 +70,8 @@ export default function ProfileScreen({ profile, onSaveAddress, onLogout }) {
         <SettingRow title="Camera" value={cameraEnabled} onChange={setCameraEnabled} />
       </View>
 
-      <PrimaryButton title="Log Out" onPress={onLogout} />
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      <PrimaryButton title="Log Out" onPress={handleLogout} loading={loggingOut} />
     </View>
   );
 }
@@ -88,5 +125,9 @@ const styles = StyleSheet.create({
   settingTitle: {
     color: colors.text,
     fontWeight: '600',
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 13,
   },
 });
