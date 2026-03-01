@@ -248,6 +248,7 @@ export default function App() {
       case 'map':
         return (
           <MapScreen
+            resolvedAddress={liveData.resolvedAddress}
             nearbyAlerts={liveData.nearbyAlerts}
             loading={loadingLiveData}
             error={liveDataError}
