@@ -9,14 +9,47 @@ const iconForType = {
   info: 'info',
 };
 
+function iconForCollectionItem(item) {
+  const value = item.toLowerCase();
+
+  if (value.includes('recycl')) {
+    return 'recycling';
+  }
+
+  if (value.includes('organ')) {
+    return 'eco';
+  }
+
+  return 'calendar-today';
+}
+
+function isZoneLabel(value) {
+  return value.toLowerCase().includes('zone');
+}
+
+function formatScheduleLine(value) {
+  return value
+    .split('•')
+    .map((part) => part.trim())
+    .filter((part) => part && !isZoneLabel(part))
+    .join(' • ');
+}
+
 export default function HomeScreen({
   address,
   nextCollection,
+  upcomingServices,
   nearbyAlerts,
   loading,
   error,
   onViewMap,
 }) {
+  const additionalServices = upcomingServices.slice(1);
+  const visibleCollectionItems = (nextCollection?.items || []).filter((item) => !isZoneLabel(item));
+  const alertsByNewest = [...nearbyAlerts].sort(
+    (left, right) => (right.initiatedAt || 0) - (left.initiatedAt || 0)
+  );
+
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.root}>
       <View style={styles.greetingRow}>
@@ -28,7 +61,6 @@ export default function HomeScreen({
 
       <View style={styles.sectionHead}>
         <Text style={styles.sectionTitle}>Next Collection</Text>
-        {nextCollection?.zone ? <Text style={styles.zonePill}>{nextCollection.zone.toUpperCase()}</Text> : null}
       </View>
 
       <View style={styles.card}>
@@ -38,10 +70,10 @@ export default function HomeScreen({
           <>
             <Text style={styles.collectionDate}>{nextCollection.dateLabel}</Text>
             <View style={styles.collectionItems}>
-              {nextCollection.items.map((item) => (
+              {visibleCollectionItems.map((item) => (
                 <View style={styles.collectionChip} key={item}>
                   <MaterialIcons
-                    name={item.toLowerCase().includes('zone') ? 'recycling' : 'calendar-today'}
+                    name={iconForCollectionItem(item)}
                     size={18}
                     color={colors.muted}
                   />
@@ -49,11 +81,26 @@ export default function HomeScreen({
                 </View>
               ))}
             </View>
+            {upcomingServices.length ? (
+              <View style={styles.scheduleSection}>
+                <View style={styles.scheduleHeader}>
+                  <Text style={styles.scheduleTitle}>Upcoming Schedule</Text>
+                </View>
 
-            <View style={styles.cardFooter}>
-              <Text style={styles.area}>{nextCollection.area}</Text>
-              <Text style={styles.scheduleLink}>Halifax Open Data</Text>
-            </View>
+                <View style={styles.scheduleList}>
+                  {additionalServices.length ? (
+                    additionalServices.map((service) => (
+                      <View key={service.id} style={styles.scheduleItem}>
+                        <Text style={styles.scheduleItemDay}>{service.day}</Text>
+                        <Text style={styles.scheduleItemText}>{formatScheduleLine(service.items)}</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.scheduleHint}>The next collection above is the only upcoming date loaded right now.</Text>
+                  )}
+                </View>
+              </View>
+            ) : null}
           </>
         ) : (
           <EmptyState
@@ -72,9 +119,9 @@ export default function HomeScreen({
       <View style={styles.alertList}>
         {loading ? (
           <LoadingState label="Loading nearby Cityworks requests..." />
-        ) : nearbyAlerts.length ? (
-          nearbyAlerts.map((item, idx) => (
-            <View key={item.id} style={[styles.alertRow, idx < nearbyAlerts.length - 1 && styles.divider]}>
+        ) : alertsByNewest.length ? (
+          alertsByNewest.map((item, idx) => (
+            <View key={item.id} style={[styles.alertRow, idx < alertsByNewest.length - 1 && styles.divider]}>
               <View style={styles.iconWrap}>
                 <MaterialIcons
                   name={iconForType[item.type] || 'info'}
@@ -166,15 +213,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     letterSpacing: -0.3,
   },
-  zonePill: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.halifaxBlue,
-    backgroundColor: '#EEF5FC',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-  },
   card: {
     marginTop: spacing.sm,
     backgroundColor: colors.surface,
@@ -203,23 +241,47 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
   },
-  cardFooter: {
+  scheduleSection: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: spacing.md,
     marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  scheduleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  scheduleTitle: {
+    color: colors.text,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  scheduleList: {
+    gap: spacing.sm,
+  },
+  scheduleItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.md,
   },
-  area: {
+  scheduleItemDay: {
+    color: colors.halifaxBlue,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  scheduleItemText: {
+    flex: 1,
+    textAlign: 'right',
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  scheduleHint: {
     color: colors.muted,
     fontSize: 12,
-  },
-  scheduleLink: {
-    color: colors.halifaxBlue,
-    fontSize: 14,
-    fontWeight: '700',
+    lineHeight: 18,
   },
   mapLink: {
     color: colors.halifaxBlue,

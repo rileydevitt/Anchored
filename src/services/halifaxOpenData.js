@@ -435,11 +435,11 @@ export async function fetchNearbyCityworksIssues(
   return issues;
 }
 
-export async function loadHalifaxDashboardData(address) {
+export async function loadHalifaxDashboardData(address, { issueRadiusKm = 5 } = {}) {
   const resolvedAddress = await resolveHalifaxAddress(address);
   const [wasteSchedule, nearbyAlerts] = await Promise.all([
     fetchWasteCollectionSchedule(resolvedAddress),
-    fetchNearbyCityworksIssues(resolvedAddress),
+    fetchNearbyCityworksIssues(resolvedAddress, { radiusKm: issueRadiusKm }),
   ]);
 
   return {
