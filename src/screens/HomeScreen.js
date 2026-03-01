@@ -1,7 +1,8 @@
-import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../constants/theme';
+import { exportPickupScheduleToCalendar } from '../services/calendarExport';
 
 const iconForType = {
   construction: 'construction',
@@ -44,11 +45,34 @@ export default function HomeScreen({
   error,
   onViewMap,
 }) {
+  const [exportingCalendar, setExportingCalendar] = useState(false);
   const additionalServices = upcomingServices.slice(1);
   const visibleCollectionItems = (nextCollection?.items || []).filter((item) => !isZoneLabel(item));
   const alertsByNewest = [...nearbyAlerts].sort(
     (left, right) => (right.initiatedAt || 0) - (left.initiatedAt || 0)
   );
+
+  const handleExportCalendar = async () => {
+    setExportingCalendar(true);
+
+    try {
+      const result = await exportPickupScheduleToCalendar({
+        address,
+        services: upcomingServices,
+      });
+
+      const summary =
+        result.skippedCount > 0
+          ? `Added ${result.createdCount} pickup day${result.createdCount === 1 ? '' : 's'} to ${result.calendarTitle}. ${result.skippedCount} already existed.`
+          : `Added ${result.createdCount} pickup day${result.createdCount === 1 ? '' : 's'} to ${result.calendarTitle}.`;
+
+      Alert.alert('Calendar updated', summary);
+    } catch (exportError) {
+      Alert.alert('Calendar export failed', exportError.message || 'Unable to export pickup days.');
+    } finally {
+      setExportingCalendar(false);
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.root}>
@@ -85,6 +109,19 @@ export default function HomeScreen({
               <View style={styles.scheduleSection}>
                 <View style={styles.scheduleHeader}>
                   <Text style={styles.scheduleTitle}>Upcoming Schedule</Text>
+                  <Pressable
+                    disabled={exportingCalendar || !upcomingServices.length}
+                    onPress={handleExportCalendar}
+                  >
+                    <Text
+                      style={[
+                        styles.scheduleAction,
+                        (exportingCalendar || !upcomingServices.length) && styles.scheduleActionDisabled,
+                      ]}
+                    >
+                      {exportingCalendar ? 'Exporting...' : 'Add to Calendar'}
+                    </Text>
+                  </Pressable>
                 </View>
 
                 <View style={styles.scheduleList}>
@@ -250,12 +287,22 @@ const styles = StyleSheet.create({
   },
   scheduleHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.sm,
   },
   scheduleTitle: {
     color: colors.text,
     fontWeight: '700',
     fontSize: 14,
+  },
+  scheduleAction: {
+    color: colors.halifaxBlue,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  scheduleActionDisabled: {
+    color: colors.muted,
   },
   scheduleList: {
     gap: spacing.sm,

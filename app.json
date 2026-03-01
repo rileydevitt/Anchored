@@ -3,6 +3,14 @@
     "name": "Anchored",
     "slug": "anchored",
     "version": "1.0.0",
+    "plugins": [
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow Anchored to add pickup days to your calendar."
+        }
+      ]
+    ],
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "splash": {
