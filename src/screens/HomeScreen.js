@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../constants/theme';
@@ -23,6 +23,18 @@ function iconForCollectionItem(item) {
   return 'calendar-today';
 }
 
+function isZoneLabel(value) {
+  return value.toLowerCase().includes('zone');
+}
+
+function formatScheduleLine(value) {
+  return value
+    .split('•')
+    .map((part) => part.trim())
+    .filter((part) => part && !isZoneLabel(part))
+    .join(' • ');
+}
+
 export default function HomeScreen({
   address,
   nextCollection,
@@ -32,16 +44,11 @@ export default function HomeScreen({
   error,
   onViewMap,
 }) {
-  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
-
-  useEffect(() => {
-    setShowAllUpcoming(false);
-  }, [upcomingServices]);
-
   const additionalServices = upcomingServices.slice(1);
-  const visibleAdditionalServices = showAllUpcoming
-    ? additionalServices
-    : additionalServices.slice(0, 2);
+  const visibleCollectionItems = (nextCollection?.items || []).filter((item) => !isZoneLabel(item));
+  const alertsByNewest = [...nearbyAlerts].sort(
+    (left, right) => (right.initiatedAt || 0) - (left.initiatedAt || 0)
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.root}>
@@ -63,7 +70,7 @@ export default function HomeScreen({
           <>
             <Text style={styles.collectionDate}>{nextCollection.dateLabel}</Text>
             <View style={styles.collectionItems}>
-              {nextCollection.items.map((item) => (
+              {visibleCollectionItems.map((item) => (
                 <View style={styles.collectionChip} key={item}>
                   <MaterialIcons
                     name={iconForCollectionItem(item)}
@@ -74,31 +81,18 @@ export default function HomeScreen({
                 </View>
               ))}
             </View>
-
-            <View style={styles.cardFooter}>
-              <Text style={styles.area}>{nextCollection.area}</Text>
-              <Text style={styles.scheduleLink}>Live Halifax data</Text>
-            </View>
-
             {upcomingServices.length ? (
               <View style={styles.scheduleSection}>
                 <View style={styles.scheduleHeader}>
                   <Text style={styles.scheduleTitle}>Upcoming Schedule</Text>
-                  {additionalServices.length ? (
-                    <Pressable onPress={() => setShowAllUpcoming((value) => !value)}>
-                      <Text style={styles.scheduleAction}>
-                        {showAllUpcoming ? 'Show less' : 'See more'}
-                      </Text>
-                    </Pressable>
-                  ) : null}
                 </View>
 
                 <View style={styles.scheduleList}>
-                  {visibleAdditionalServices.length ? (
-                    visibleAdditionalServices.map((service) => (
+                  {additionalServices.length ? (
+                    additionalServices.map((service) => (
                       <View key={service.id} style={styles.scheduleItem}>
                         <Text style={styles.scheduleItemDay}>{service.day}</Text>
-                        <Text style={styles.scheduleItemText}>{service.items}</Text>
+                        <Text style={styles.scheduleItemText}>{formatScheduleLine(service.items)}</Text>
                       </View>
                     ))
                   ) : (
@@ -125,9 +119,9 @@ export default function HomeScreen({
       <View style={styles.alertList}>
         {loading ? (
           <LoadingState label="Loading nearby Cityworks requests..." />
-        ) : nearbyAlerts.length ? (
-          nearbyAlerts.map((item, idx) => (
-            <View key={item.id} style={[styles.alertRow, idx < nearbyAlerts.length - 1 && styles.divider]}>
+        ) : alertsByNewest.length ? (
+          alertsByNewest.map((item, idx) => (
+            <View key={item.id} style={[styles.alertRow, idx < alertsByNewest.length - 1 && styles.divider]}>
               <View style={styles.iconWrap}>
                 <MaterialIcons
                   name={iconForType[item.type] || 'info'}
@@ -247,24 +241,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
   },
-  cardFooter: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing.md,
-    marginTop: spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  area: {
-    color: colors.muted,
-    fontSize: 12,
-  },
-  scheduleLink: {
-    color: colors.halifaxBlue,
-    fontSize: 12,
-    fontWeight: '700',
-  },
   scheduleSection: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
@@ -274,19 +250,12 @@ const styles = StyleSheet.create({
   },
   scheduleHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.sm,
   },
   scheduleTitle: {
     color: colors.text,
     fontWeight: '700',
     fontSize: 14,
-  },
-  scheduleAction: {
-    color: colors.halifaxBlue,
-    fontSize: 13,
-    fontWeight: '700',
   },
   scheduleList: {
     gap: spacing.sm,

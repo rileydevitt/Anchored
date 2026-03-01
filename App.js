@@ -25,7 +25,18 @@ const DEFAULT_PROFILE = {
   email: '',
   address: '',
   notificationsEnabled: true,
+  issueRadiusKm: 5,
 };
+
+function normalizeIssueRadiusKm(value) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return DEFAULT_PROFILE.issueRadiusKm;
+  }
+
+  return Math.min(10, Math.max(1, Math.round(numericValue)));
+}
 
 const EMPTY_LIVE_DATA = {
   resolvedAddress: null,
@@ -73,6 +84,7 @@ export default function App() {
               typeof data.notificationsEnabled === 'boolean'
                 ? data.notificationsEnabled
                 : DEFAULT_PROFILE.notificationsEnabled,
+            issueRadiusKm: normalizeIssueRadiusKm(data.issueRadiusKm),
           });
         } else {
           const seededProfile = {
@@ -80,6 +92,7 @@ export default function App() {
             email: user.email || '',
             address: '',
             notificationsEnabled: true,
+            issueRadiusKm: DEFAULT_PROFILE.issueRadiusKm,
           };
 
           setProfile(seededProfile);
@@ -100,6 +113,7 @@ export default function App() {
           email: user.email || '',
           address: '',
           notificationsEnabled: true,
+          issueRadiusKm: DEFAULT_PROFILE.issueRadiusKm,
         });
       } finally {
         setHydratingSession(false);
@@ -124,7 +138,9 @@ export default function App() {
       setLiveDataError('');
 
       try {
-        const nextLiveData = await loadHalifaxDashboardData(profile.address);
+        const nextLiveData = await loadHalifaxDashboardData(profile.address, {
+          issueRadiusKm: profile.issueRadiusKm,
+        });
 
         if (!isActive) {
           return;
@@ -150,7 +166,7 @@ export default function App() {
     return () => {
       isActive = false;
     };
-  }, [hydratingSession, isAuthenticated, profile.address]);
+  }, [hydratingSession, isAuthenticated, profile.address, profile.issueRadiusKm]);
 
   const authErrorToMessage = (error) => {
     switch (error?.code) {
@@ -257,6 +273,7 @@ export default function App() {
           <ProfileScreen
             profile={profile}
             remindersEnabled={profile.notificationsEnabled}
+            issueRadiusKm={profile.issueRadiusKm}
             onSaveAddress={async (address) => {
               const nextAddress = address || profile.address;
               await saveProfilePatch({ address: nextAddress });
@@ -266,6 +283,13 @@ export default function App() {
                 await saveProfilePatch({ notificationsEnabled: value });
               } catch (error) {
                 console.error('Failed to update reminder preference', error);
+              }
+            }}
+            onChangeIssueRadius={async (value) => {
+              try {
+                await saveProfilePatch({ issueRadiusKm: normalizeIssueRadiusKm(value) });
+              } catch (error) {
+                console.error('Failed to update nearby issue range', error);
               }
             }}
             onLogout={async () => {

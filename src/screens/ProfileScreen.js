@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
 import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors, radius, spacing } from '../constants/theme';
@@ -8,8 +9,10 @@ import { colors, radius, spacing } from '../constants/theme';
 export default function ProfileScreen({
   profile,
   remindersEnabled,
+  issueRadiusKm,
   onSaveAddress,
   onToggleReminders,
+  onChangeIssueRadius,
   onLogout,
 }) {
   const [addressDraft, setAddressDraft] = useState(profile.address || '');
@@ -82,6 +85,29 @@ export default function ProfileScreen({
         />
         <SettingRow title="Location" value={locationEnabled} onChange={setLocationEnabled} />
         <SettingRow title="Camera" value={cameraEnabled} onChange={setCameraEnabled} />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.settingTitle}>Nearby civic issues range</Text>
+        <Text style={styles.settingSubtitle}>
+          Showing issues within {issueRadiusKm} km of your saved address.
+        </Text>
+        <View style={styles.sliderWrap}>
+          <View style={styles.sliderHeader}>
+            <Text style={styles.sliderLabel}>1 km</Text>
+            <Text style={styles.sliderLabel}>10 km</Text>
+          </View>
+          <Slider
+            minimumValue={1}
+            maximumValue={10}
+            step={1}
+            value={issueRadiusKm}
+            minimumTrackTintColor={colors.halifaxBlue}
+            maximumTrackTintColor="#D1D5DB"
+            thumbTintColor={colors.halifaxBlue}
+            onSlidingComplete={onChangeIssueRadius}
+          />
+        </View>
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -161,6 +187,20 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 12,
     marginTop: 2,
+  },
+  sliderWrap: {
+    marginTop: spacing.sm,
+  },
+  sliderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  sliderLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '500',
   },
   errorText: {
     color: '#B91C1C',
