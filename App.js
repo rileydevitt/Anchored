@@ -107,7 +107,7 @@ export default function App() {
           );
         }
       } catch (error) {
-        console.error('Failed to hydrate user profile', error);
+        console.error('Failed to load user profile', error);
         setProfile({
           name: user.displayName || DEFAULT_PROFILE.name,
           email: user.email || '',
@@ -153,7 +153,7 @@ export default function App() {
         }
 
         setLiveData(EMPTY_LIVE_DATA);
-        setLiveDataError(error.message || 'Unable to load Halifax Open Data right now.');
+        setLiveDataError(error.message || 'Unable to load Halifax Open Data.');
       } finally {
         if (isActive) {
           setLoadingLiveData(false);

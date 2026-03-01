@@ -230,11 +230,42 @@ function formatLongDateLabel(date) {
   return `${WEEKDAY_LONG[date.getDay()]}, ${MONTH_SHORT[date.getMonth()]} ${date.getDate()}`;
 }
 
+function getRecycleZoneParity(recycleFrequency) {
+  const match = recycleFrequency?.match(/zone\s+([ab])/i);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1].toUpperCase() === 'A' ? 0 : 1;
+}
+
+function getWeekParity(anchorDate, targetDate) {
+  const anchor = new Date(anchorDate);
+  anchor.setHours(0, 0, 0, 0);
+
+  const target = new Date(targetDate);
+  target.setHours(0, 0, 0, 0);
+
+  const weekDiff = Math.floor((target.getTime() - anchor.getTime()) / (7 * 24 * 60 * 60 * 1000));
+  return Math.abs(weekDiff % 2);
+}
+
+function inferCollectionItemsForDate(wasteAttributes, date) {
+  const zoneParity = getRecycleZoneParity(wasteAttributes.RECYCLEFRQ);
+
+  if (!wasteAttributes.SDATE || zoneParity === null) {
+    return wasteAttributes.COLLECT ? [toTitleCase(wasteAttributes.COLLECT)] : [];
+  }
+
+  const weekParity = getWeekParity(wasteAttributes.SDATE, date);
+  const isRecyclingWeek = weekParity === zoneParity;
+
+  return isRecyclingWeek ? ['Organics', 'Recycling'] : ['Organics', 'Garbage'];
+}
+
 function buildUpcomingSchedule(wasteAttributes) {
   const nextDate = getNextCollectionDate(wasteAttributes.COLLECT);
-  const collectionLabel = wasteAttributes.COLLECT
-    ? `${toTitleCase(wasteAttributes.COLLECT)} collection`
-    : null;
 
   if (!nextDate) {
     return [];
@@ -243,11 +274,13 @@ function buildUpcomingSchedule(wasteAttributes) {
   return Array.from({ length: 4 }, (_, index) => {
     const date = new Date(nextDate);
     date.setDate(nextDate.getDate() + index * 7);
+    const inferredItems = inferCollectionItemsForDate(wasteAttributes, date);
 
     return {
       id: `${wasteAttributes.COLL_AREA || 'area'}-${index}`,
       day: formatDateLabel(date),
-      items: [collectionLabel, wasteAttributes.RECYCLEFRQ].filter(Boolean).join(' • '),
+      dateISO: date.toISOString().slice(0, 10),
+      items: inferredItems.join(' • '),
     };
   });
 }
@@ -272,16 +305,14 @@ export async function fetchWasteCollectionSchedule({ latitude, longitude }) {
   const nextDate = getNextCollectionDate(attributes.COLLECT);
   const scheduleArea = attributes.COLL_SCHED || attributes.COLL_AREA || 'Schedule unavailable';
   const areaLabel = [attributes.COLL_AREA, attributes.CONTRACTOR].filter(Boolean).join(' • ');
-  const collectionLabel = attributes.COLLECT
-    ? `${toTitleCase(attributes.COLLECT)} collection`
-    : null;
+  const nextCollectionItems = nextDate ? inferCollectionItemsForDate(attributes, nextDate) : [];
 
   return {
     nextCollection: {
       zone: scheduleArea,
       dateLabel: nextDate ? formatLongDateLabel(nextDate) : 'Collection day unavailable',
       area: areaLabel || 'Halifax solid waste service area',
-      items: [collectionLabel, attributes.RECYCLEFRQ].filter(Boolean),
+      items: nextCollectionItems,
     },
     upcomingServices: buildUpcomingSchedule(attributes),
   };
