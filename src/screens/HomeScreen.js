@@ -1,8 +1,7 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../constants/theme';
-import { nearbyAlerts, nextCollection } from '../data/mockData';
 
 const iconForType = {
   construction: 'construction',
@@ -10,7 +9,14 @@ const iconForType = {
   info: 'info',
 };
 
-export default function HomeScreen({ address, onViewMap }) {
+export default function HomeScreen({
+  address,
+  nextCollection,
+  nearbyAlerts,
+  loading,
+  error,
+  onViewMap,
+}) {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.root}>
       <View style={styles.greetingRow}>
@@ -18,38 +24,42 @@ export default function HomeScreen({ address, onViewMap }) {
           <Text style={styles.greetingLabel}>Good morning</Text>
           <Text style={styles.location}>{address || 'Halifax, NS'}</Text>
         </View>
-        <View style={styles.weatherPill}>
-          <MaterialIcons name="light-mode" size={16} color={colors.halifaxBlue} />
-          <Text style={styles.weatherText}>18°C</Text>
-        </View>
       </View>
 
       <View style={styles.sectionHead}>
         <Text style={styles.sectionTitle}>Next Collection</Text>
-        <Text style={styles.zonePill}>{nextCollection.zone.toUpperCase()}</Text>
+        {nextCollection?.zone ? <Text style={styles.zonePill}>{nextCollection.zone.toUpperCase()}</Text> : null}
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.collectionDate}>{nextCollection.dateLabel}</Text>
-        <View style={styles.collectionItems}>
-          {nextCollection.items.map((item) => (
-            <View style={styles.collectionChip} key={item}>
-              <MaterialIcons
-                name={item === 'Organics' ? 'eco' : 'delete'}
-                size={18}
-                color={colors.muted}
-              />
-              <Text style={styles.collectionText}>{item}</Text>
+        {loading ? (
+          <LoadingState label="Loading live collection data..." />
+        ) : nextCollection ? (
+          <>
+            <Text style={styles.collectionDate}>{nextCollection.dateLabel}</Text>
+            <View style={styles.collectionItems}>
+              {nextCollection.items.map((item) => (
+                <View style={styles.collectionChip} key={item}>
+                  <MaterialIcons
+                    name={item.toLowerCase().includes('zone') ? 'recycling' : 'calendar-today'}
+                    size={18}
+                    color={colors.muted}
+                  />
+                  <Text style={styles.collectionText}>{item}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
 
-        <View style={styles.cardFooter}>
-          <Text style={styles.area}>{nextCollection.area}</Text>
-          <Pressable>
-            <Text style={styles.scheduleLink}>Schedule</Text>
-          </Pressable>
-        </View>
+            <View style={styles.cardFooter}>
+              <Text style={styles.area}>{nextCollection.area}</Text>
+              <Text style={styles.scheduleLink}>Halifax Open Data</Text>
+            </View>
+          </>
+        ) : (
+          <EmptyState
+            label={error || 'Add a Halifax civic address to load your collection area and schedule.'}
+          />
+        )}
       </View>
 
       <View style={styles.sectionHead}>
@@ -60,22 +70,28 @@ export default function HomeScreen({ address, onViewMap }) {
       </View>
 
       <View style={styles.alertList}>
-        {nearbyAlerts.map((item, idx) => (
-          <View key={item.id} style={[styles.alertRow, idx < nearbyAlerts.length - 1 && styles.divider]}>
-            <View style={styles.iconWrap}>
-              <MaterialIcons
-                name={iconForType[item.type] || 'info'}
-                size={20}
-                color={colors.halifaxBlue}
-              />
+        {loading ? (
+          <LoadingState label="Loading nearby Cityworks requests..." />
+        ) : nearbyAlerts.length ? (
+          nearbyAlerts.map((item, idx) => (
+            <View key={item.id} style={[styles.alertRow, idx < nearbyAlerts.length - 1 && styles.divider]}>
+              <View style={styles.iconWrap}>
+                <MaterialIcons
+                  name={iconForType[item.type] || 'info'}
+                  size={20}
+                  color={colors.halifaxBlue}
+                />
+              </View>
+              <View style={styles.alertBody}>
+                <Text style={styles.alertTitle}>{item.title}</Text>
+                <Text style={styles.alertDescription}>{item.description}</Text>
+                <Text style={styles.alertMeta}>{item.meta}</Text>
+              </View>
             </View>
-            <View style={styles.alertBody}>
-              <Text style={styles.alertTitle}>{item.title}</Text>
-              <Text style={styles.alertDescription}>{item.description}</Text>
-              <Text style={styles.alertMeta}>{item.meta}</Text>
-            </View>
-          </View>
-        ))}
+          ))
+        ) : (
+          <EmptyState label={error || 'No nearby open civic requests were found for this address.'} />
+        )}
       </View>
 
       <Pressable style={styles.reportButton}>
@@ -86,6 +102,23 @@ export default function HomeScreen({ address, onViewMap }) {
         <MaterialIcons name="arrow-forward" size={20} color="#fff" />
       </Pressable>
     </ScrollView>
+  );
+}
+
+function LoadingState({ label }) {
+  return (
+    <View style={styles.stateWrap}>
+      <ActivityIndicator color={colors.halifaxBlue} />
+      <Text style={styles.stateText}>{label}</Text>
+    </View>
+  );
+}
+
+function EmptyState({ label }) {
+  return (
+    <View style={styles.stateWrap}>
+      <Text style={styles.stateText}>{label}</Text>
+    </View>
   );
 }
 
@@ -120,22 +153,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     letterSpacing: -0.5,
     maxWidth: 250,
-  },
-  weatherPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  weatherText: {
-    fontWeight: '700',
-    color: colors.halifaxBlue,
-    fontSize: 13,
   },
   sectionHead: {
     marginTop: spacing.md,
@@ -255,6 +272,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     marginTop: 2,
+  },
+  stateWrap: {
+    minHeight: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  stateText: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
   },
   reportButton: {
     marginTop: spacing.lg,
