@@ -17,6 +17,7 @@ import ServicesScreen from './src/screens/ServicesScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import BottomTabBar from './src/components/BottomTabBar';
 import { colors } from './src/constants/theme';
+import { loadHalifaxDashboardData } from './src/services/halifaxOpenData';
 import { auth, db } from './firebase';
 
 const DEFAULT_PROFILE = {
@@ -26,12 +27,22 @@ const DEFAULT_PROFILE = {
   notificationsEnabled: true,
 };
 
+const EMPTY_LIVE_DATA = {
+  resolvedAddress: null,
+  nextCollection: null,
+  upcomingServices: [],
+  nearbyAlerts: [],
+};
+
 export default function App() {
   const [authMode, setAuthMode] = useState('login');
   const [authUser, setAuthUser] = useState(null);
   const [hydratingSession, setHydratingSession] = useState(true);
   const [activeTab, setActiveTab] = useState('home');
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
+  const [liveData, setLiveData] = useState(EMPTY_LIVE_DATA);
+  const [loadingLiveData, setLoadingLiveData] = useState(false);
+  const [liveDataError, setLiveDataError] = useState('');
 
   const isAuthenticated = Boolean(authUser);
   const needsAddressSetup = isAuthenticated && !hydratingSession && !profile.address;
@@ -97,6 +108,49 @@ export default function App() {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!isAuthenticated || hydratingSession || !profile.address) {
+      setLiveData(EMPTY_LIVE_DATA);
+      setLoadingLiveData(false);
+      setLiveDataError('');
+      return undefined;
+    }
+
+    const hydrateOpenData = async () => {
+      setLoadingLiveData(true);
+      setLiveDataError('');
+
+      try {
+        const nextLiveData = await loadHalifaxDashboardData(profile.address);
+
+        if (!isActive) {
+          return;
+        }
+
+        setLiveData(nextLiveData);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setLiveData(EMPTY_LIVE_DATA);
+        setLiveDataError(error.message || 'Unable to load Halifax Open Data right now.');
+      } finally {
+        if (isActive) {
+          setLoadingLiveData(false);
+        }
+      }
+    };
+
+    hydrateOpenData();
+
+    return () => {
+      isActive = false;
+    };
+  }, [hydratingSession, isAuthenticated, profile.address]);
 
   const authErrorToMessage = (error) => {
     switch (error?.code) {
@@ -192,11 +246,21 @@ export default function App() {
 
     switch (activeTab) {
       case 'map':
-        return <MapScreen />;
+        return (
+          <MapScreen
+            nearbyAlerts={liveData.nearbyAlerts}
+            loading={loadingLiveData}
+            error={liveDataError}
+            community={liveData.resolvedAddress?.community}
+          />
+        );
       case 'services':
         return (
           <ServicesScreen
             remindersEnabled={profile.notificationsEnabled}
+            upcomingServices={liveData.upcomingServices}
+            loading={loadingLiveData}
+            error={liveDataError}
             onToggleReminders={async (value) => {
               try {
                 await saveProfilePatch({ notificationsEnabled: value });
@@ -222,9 +286,28 @@ export default function App() {
         );
       case 'home':
       default:
-        return <HomeScreen address={profile.address} onViewMap={() => setActiveTab('map')} />;
+        return (
+          <HomeScreen
+            address={liveData.resolvedAddress?.canonicalAddress || profile.address}
+            nextCollection={liveData.nextCollection}
+            nearbyAlerts={liveData.nearbyAlerts}
+            loading={loadingLiveData}
+            error={liveDataError}
+            onViewMap={() => setActiveTab('map')}
+          />
+        );
     }
-  }, [activeTab, authMode, hydratingSession, isAuthenticated, needsAddressSetup, profile]);
+  }, [
+    activeTab,
+    authMode,
+    hydratingSession,
+    isAuthenticated,
+    liveData,
+    liveDataError,
+    loadingLiveData,
+    needsAddressSetup,
+    profile,
+  ]);
 
   const showMainShell = isAuthenticated && !needsAddressSetup && !hydratingSession;
 

@@ -1,14 +1,19 @@
 import React from 'react';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Switch, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../constants/theme';
-import { upcomingServices } from '../data/mockData';
 
-export default function ServicesScreen({ remindersEnabled, onToggleReminders }) {
+export default function ServicesScreen({
+  remindersEnabled,
+  upcomingServices,
+  loading,
+  error,
+  onToggleReminders,
+}) {
   return (
     <View style={styles.root}>
       <Text style={styles.title}>Service Schedule</Text>
-      <Text style={styles.subtitle}>Upcoming municipal collection reminders based on your zone.</Text>
+      <Text style={styles.subtitle}>Upcoming municipal collection dates from Halifax Open Data.</Text>
 
       <View style={styles.toggleCard}>
         <View style={styles.toggleLabelWrap}>
@@ -27,12 +32,25 @@ export default function ServicesScreen({ remindersEnabled, onToggleReminders }) 
       </View>
 
       <View style={styles.list}>
-        {upcomingServices.map((service) => (
-          <View key={service.id} style={styles.item}>
-            <Text style={styles.itemDay}>{service.day}</Text>
-            <Text style={styles.itemText}>{service.items}</Text>
+        {loading ? (
+          <View style={styles.stateWrap}>
+            <ActivityIndicator color={colors.halifaxBlue} />
+            <Text style={styles.stateText}>Loading live collection schedule...</Text>
           </View>
-        ))}
+        ) : upcomingServices.length ? (
+          upcomingServices.map((service) => (
+            <View key={service.id} style={styles.item}>
+              <Text style={styles.itemDay}>{service.day}</Text>
+              <Text style={styles.itemText}>{service.items}</Text>
+            </View>
+          ))
+        ) : (
+          <View style={styles.stateWrap}>
+            <Text style={styles.stateText}>
+              {error || 'No live collection schedule could be loaded for this address.'}
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -102,5 +120,18 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
     fontSize: 15,
+  },
+  stateWrap: {
+    minHeight: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  stateText: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
   },
 });
