@@ -31,22 +31,22 @@ User profile and settings
 Service reminders (core utility)
 - [x] Upcoming service schedule UI on Home/Services screens
 - [~] Reminder enable/disable UX (state persists, but no native notification scheduling yet)
-- [ ] Address/service-zone based schedule fetch from Halifax data
+- [x] Address/service-zone based schedule fetch from Halifax data
 - [ ] Push notification scheduling for service reminders
 - [ ] Reminder timing customization (night before/morning of)
 
 Civic issues awareness
 - [x] Nearby alerts list UI scaffold on Home and Map screens
-- [ ] Fetch live civic issue/open-data records
-- [ ] Proximity filtering by user location/address radius
+- [x] Fetch live civic issue/open-data records
+- [~] Proximity filtering by user location/address radius (currently fixed-radius by saved address, not live device location)
 - [ ] Save/bookmark issues
-- [ ] Real map-marker interactions tied to issue data
+- [x] Real map-marker interactions tied to issue data
 
 Map integration
-- [~] Map screen scaffold exists (placeholder card + list fallback)
-- [ ] Real map library integration (Apple/Google via RN map abstraction)
+- [x] Map screen scaffold exists (placeholder card + list fallback)
+- [x] Real map library integration (Apple/Google via RN map abstraction)
 - [ ] Display live user location (permission-aware)
-- [ ] Custom issue markers
+- [~] Custom issue markers (typed marker colors in place; bespoke marker UI not yet built)
 - [ ] Marker tap -> issue details navigation
 - [ ] Radius filtering controls
 
@@ -67,7 +67,7 @@ Data and backend integrations
 - [x] Firestore user document persistence (`users/{uid}`)
 - [x] Firestore rules file created (`firestore.rules`)
 - [ ] Firestore rules deployed in Firebase Console
-- [ ] Halifax Open Data API integration
+- [x] Halifax Open Data API integration
 - [ ] Supabase backend/database integration (PRD baseline target)
 
 Native features
@@ -78,30 +78,30 @@ Native features
 Planned MVP screens
 - [x] Auth screen (login/register mode)
 - [x] Home dashboard screen
-- [~] Map screen (placeholder scaffold)
+- [x] Map screen
 - [ ] Issue details screen
 - [x] Profile/settings screen
 
 P0 priority status (MVP core)
 - [~] Authentication (implemented, but Firebase instead of Supabase)
 - [x] Address capture/personalization base flow
-- [~] Waste/service reminder view (UI done, real data not wired)
+- [x] Waste/service reminder view
 - [ ] Notification scheduling for reminders
-- [ ] Basic civic issue map with real markers
+- [x] Basic civic issue map with real markers
 - [ ] Issue details screen
-- [ ] Location-based filtering
+- [~] Location-based filtering (saved-address proximity only)
 - [x] Settings/profile screen
 
 MVP release-readiness checklist
 - [x] Users can register/login successfully
 - [x] Users can save an address
-- [~] Home shows upcoming reminder content (currently mock/static data)
+- [x] Home shows upcoming reminder content from live Halifax data
 - [ ] Notifications enabled and scheduled from live service data
-- [ ] Map displays nearby live civic issues with markers
+- [x] Map displays nearby live civic issues with markers
 - [ ] Marker tap opens issue details
 - [~] App runs on iOS/Android in Expo development flow (environment-specific setup may still be needed)
 - [~] Core error states partially handled (auth/profile save done; API/location/no-data flows pending)
 
 Notes
-- The app currently follows the PRD flow and UI direction, but several "data + native" milestones are still scaffold-level.
-- If desired, next high-impact step is integrating Halifax Open Data + map markers + issue details to close the biggest P0 gaps.
+- The app now uses Halifax Open Data for address resolution, waste schedule data, and nearby Cityworks issue markers.
+- Remaining highest-impact gaps are issue details/navigation, native reminder scheduling, live device location/permissions, and the 311 photo handoff flow.

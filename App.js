@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -313,23 +314,27 @@ export default function App() {
   const showMainShell = isAuthenticated && !needsAddressSetup && !hydratingSession;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+    <SafeAreaProvider>
+      <View style={styles.safe}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      {showMainShell ? (
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <MaterialCommunityIcons name="anchor" size={24} color={colors.halifaxBlue} />
-            <Text style={styles.headerTitle}>Anchored</Text>
-          </View>
-          <MaterialIcons name="notifications" size={24} color={colors.text} />
-        </View>
-      ) : null}
+        <SafeAreaView edges={['top']} style={styles.mainShell}>
+          {showMainShell ? (
+            <View style={styles.header}>
+              <View style={styles.headerLeft}>
+                <MaterialCommunityIcons name="anchor" size={24} color={colors.halifaxBlue} />
+                <Text style={styles.headerTitle}>Anchored</Text>
+              </View>
+              <MaterialIcons name="notifications" size={24} color={colors.text} />
+            </View>
+          ) : null}
 
-      <View style={styles.content}>{currentScreen}</View>
+          <View style={styles.content}>{currentScreen}</View>
+        </SafeAreaView>
 
-      {showMainShell ? <BottomTabBar activeTab={activeTab} onTabPress={setActiveTab} /> : null}
-    </SafeAreaView>
+        {showMainShell ? <BottomTabBar activeTab={activeTab} onTabPress={setActiveTab} /> : null}
+      </View>
+    </SafeAreaProvider>
   );
 }
 
@@ -337,6 +342,9 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  mainShell: {
+    flex: 1,
   },
   header: {
     height: 58,
