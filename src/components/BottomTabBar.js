@@ -7,7 +7,6 @@ import { colors } from '../constants/theme';
 const TABS = [
   { key: 'home', label: 'Home', icon: 'home' },
   { key: 'map', label: 'Map', icon: 'map' },
-  { key: 'services', label: 'Services', icon: 'apps' },
   { key: 'profile', label: 'Profile', icon: 'person' },
 ];
 

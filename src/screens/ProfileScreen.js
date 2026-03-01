@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors, radius, spacing } from '../constants/theme';
 
-export default function ProfileScreen({ profile, onSaveAddress, onLogout }) {
+export default function ProfileScreen({
+  profile,
+  remindersEnabled,
+  onSaveAddress,
+  onToggleReminders,
+  onLogout,
+}) {
   const [addressDraft, setAddressDraft] = useState(profile.address || '');
   const [locationEnabled, setLocationEnabled] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(false);
@@ -66,6 +73,13 @@ export default function ProfileScreen({ profile, onSaveAddress, onLogout }) {
       </View>
 
       <View style={styles.card}>
+        <SettingRow
+          title="Collection reminders"
+          subtitle="Night before collection at 8:00 PM"
+          icon="notifications-active"
+          value={remindersEnabled}
+          onChange={onToggleReminders}
+        />
         <SettingRow title="Location" value={locationEnabled} onChange={setLocationEnabled} />
         <SettingRow title="Camera" value={cameraEnabled} onChange={setCameraEnabled} />
       </View>
@@ -76,10 +90,16 @@ export default function ProfileScreen({ profile, onSaveAddress, onLogout }) {
   );
 }
 
-function SettingRow({ title, value, onChange }) {
+function SettingRow({ title, subtitle, icon, value, onChange }) {
   return (
     <View style={styles.settingRow}>
-      <Text style={styles.settingTitle}>{title}</Text>
+      <View style={styles.settingCopy}>
+        {icon ? <MaterialIcons name={icon} size={18} color={colors.halifaxBlue} /> : null}
+        <View style={styles.settingTextWrap}>
+          <Text style={styles.settingTitle}>{title}</Text>
+          {subtitle ? <Text style={styles.settingSubtitle}>{subtitle}</Text> : null}
+        </View>
+      </View>
       <Switch
         value={value}
         onValueChange={onChange}
@@ -121,10 +141,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.sm,
+  },
+  settingCopy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  settingTextWrap: {
+    flex: 1,
   },
   settingTitle: {
     color: colors.text,
     fontWeight: '600',
+  },
+  settingSubtitle: {
+    color: colors.muted,
+    fontSize: 12,
+    marginTop: 2,
   },
   errorText: {
     color: '#B91C1C',

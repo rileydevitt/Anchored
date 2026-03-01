@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../constants/theme';
@@ -9,14 +9,40 @@ const iconForType = {
   info: 'info',
 };
 
+function iconForCollectionItem(item) {
+  const value = item.toLowerCase();
+
+  if (value.includes('recycl')) {
+    return 'recycling';
+  }
+
+  if (value.includes('organ')) {
+    return 'eco';
+  }
+
+  return 'calendar-today';
+}
+
 export default function HomeScreen({
   address,
   nextCollection,
+  upcomingServices,
   nearbyAlerts,
   loading,
   error,
   onViewMap,
 }) {
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+
+  useEffect(() => {
+    setShowAllUpcoming(false);
+  }, [upcomingServices]);
+
+  const additionalServices = upcomingServices.slice(1);
+  const visibleAdditionalServices = showAllUpcoming
+    ? additionalServices
+    : additionalServices.slice(0, 2);
+
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.root}>
       <View style={styles.greetingRow}>
@@ -28,7 +54,6 @@ export default function HomeScreen({
 
       <View style={styles.sectionHead}>
         <Text style={styles.sectionTitle}>Next Collection</Text>
-        {nextCollection?.zone ? <Text style={styles.zonePill}>{nextCollection.zone.toUpperCase()}</Text> : null}
       </View>
 
       <View style={styles.card}>
@@ -41,7 +66,7 @@ export default function HomeScreen({
               {nextCollection.items.map((item) => (
                 <View style={styles.collectionChip} key={item}>
                   <MaterialIcons
-                    name={item.toLowerCase().includes('zone') ? 'recycling' : 'calendar-today'}
+                    name={iconForCollectionItem(item)}
                     size={18}
                     color={colors.muted}
                   />
@@ -52,8 +77,36 @@ export default function HomeScreen({
 
             <View style={styles.cardFooter}>
               <Text style={styles.area}>{nextCollection.area}</Text>
-              <Text style={styles.scheduleLink}>Halifax Open Data</Text>
+              <Text style={styles.scheduleLink}>Live Halifax data</Text>
             </View>
+
+            {upcomingServices.length ? (
+              <View style={styles.scheduleSection}>
+                <View style={styles.scheduleHeader}>
+                  <Text style={styles.scheduleTitle}>Upcoming Schedule</Text>
+                  {additionalServices.length ? (
+                    <Pressable onPress={() => setShowAllUpcoming((value) => !value)}>
+                      <Text style={styles.scheduleAction}>
+                        {showAllUpcoming ? 'Show less' : 'See more'}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+
+                <View style={styles.scheduleList}>
+                  {visibleAdditionalServices.length ? (
+                    visibleAdditionalServices.map((service) => (
+                      <View key={service.id} style={styles.scheduleItem}>
+                        <Text style={styles.scheduleItemDay}>{service.day}</Text>
+                        <Text style={styles.scheduleItemText}>{service.items}</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.scheduleHint}>The next collection above is the only upcoming date loaded right now.</Text>
+                  )}
+                </View>
+              </View>
+            ) : null}
           </>
         ) : (
           <EmptyState
@@ -166,15 +219,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     letterSpacing: -0.3,
   },
-  zonePill: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.halifaxBlue,
-    backgroundColor: '#EEF5FC',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-  },
   card: {
     marginTop: spacing.sm,
     backgroundColor: colors.surface,
@@ -218,8 +262,57 @@ const styles = StyleSheet.create({
   },
   scheduleLink: {
     color: colors.halifaxBlue,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
+  },
+  scheduleSection: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  scheduleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  scheduleTitle: {
+    color: colors.text,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  scheduleAction: {
+    color: colors.halifaxBlue,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  scheduleList: {
+    gap: spacing.sm,
+  },
+  scheduleItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  scheduleItemDay: {
+    color: colors.halifaxBlue,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  scheduleItemText: {
+    flex: 1,
+    textAlign: 'right',
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  scheduleHint: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
   },
   mapLink: {
     color: colors.halifaxBlue,

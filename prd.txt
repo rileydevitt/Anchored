@@ -9,7 +9,7 @@ Project setup and foundation
 - [x] Expo project scaffolded
 - [x] JavaScript React Native app structure in place
 - [x] Core design language from home.html translated into app UI tokens/components
-- [x] Base navigation shell with bottom tabs (Home, Map, Services, Profile)
+- [x] Base navigation shell with bottom tabs (Home, Map, Profile)
 
 Authentication module
 - [x] User registration flow (email + password)
@@ -18,7 +18,6 @@ Authentication module
 - [x] Session persistence across app restarts
 - [x] Clear error handling for invalid credentials/auth failures
 - [ ] Password reset flow
-- [ ] Supabase Auth integration (current implementation uses Firebase Auth)
 
 User profile and settings
 - [x] Save/update primary address
@@ -29,7 +28,7 @@ User profile and settings
 - [ ] Theme preference support
 
 Service reminders (core utility)
-- [x] Upcoming service schedule UI on Home/Services screens
+- [x] Upcoming service schedule UI on Home screen
 - [~] Reminder enable/disable UX (state persists, but no native notification scheduling yet)
 - [x] Address/service-zone based schedule fetch from Halifax data
 - [ ] Push notification scheduling for service reminders
@@ -104,4 +103,5 @@ MVP release-readiness checklist
 
 Notes
 - The app now uses Halifax Open Data for address resolution, waste schedule data, and nearby Cityworks issue markers.
+- Service reminders are surfaced on Home, with reminder preferences controlled from Profile instead of a dedicated Services tab.
 - Remaining highest-impact gaps are issue details/navigation, native reminder scheduling, live device location/permissions, and the 311 photo handoff flow.

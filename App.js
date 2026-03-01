@@ -14,7 +14,6 @@ import AuthScreen from './src/screens/AuthScreen';
 import AddressSetupScreen from './src/screens/AddressSetupScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import MapScreen from './src/screens/MapScreen';
-import ServicesScreen from './src/screens/ServicesScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import BottomTabBar from './src/components/BottomTabBar';
 import { colors } from './src/constants/theme';
@@ -251,34 +250,23 @@ export default function App() {
           <MapScreen
             resolvedAddress={liveData.resolvedAddress}
             nearbyAlerts={liveData.nearbyAlerts}
-            loading={loadingLiveData}
-            error={liveDataError}
-            community={liveData.resolvedAddress?.community}
-          />
-        );
-      case 'services':
-        return (
-          <ServicesScreen
-            remindersEnabled={profile.notificationsEnabled}
-            upcomingServices={liveData.upcomingServices}
-            loading={loadingLiveData}
-            error={liveDataError}
-            onToggleReminders={async (value) => {
-              try {
-                await saveProfilePatch({ notificationsEnabled: value });
-              } catch (error) {
-                console.error('Failed to update reminder preference', error);
-              }
-            }}
           />
         );
       case 'profile':
         return (
           <ProfileScreen
             profile={profile}
+            remindersEnabled={profile.notificationsEnabled}
             onSaveAddress={async (address) => {
               const nextAddress = address || profile.address;
               await saveProfilePatch({ address: nextAddress });
+            }}
+            onToggleReminders={async (value) => {
+              try {
+                await saveProfilePatch({ notificationsEnabled: value });
+              } catch (error) {
+                console.error('Failed to update reminder preference', error);
+              }
             }}
             onLogout={async () => {
               await signOut(auth);
@@ -292,6 +280,7 @@ export default function App() {
           <HomeScreen
             address={liveData.resolvedAddress?.canonicalAddress || profile.address}
             nextCollection={liveData.nextCollection}
+            upcomingServices={liveData.upcomingServices}
             nearbyAlerts={liveData.nearbyAlerts}
             loading={loadingLiveData}
             error={liveDataError}
