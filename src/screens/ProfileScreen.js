@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import InputField from '../components/InputField';
+import AddressAutocompleteInput from '../components/AddressAutocompleteInput';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors, radius, spacing } from '../constants/theme';
 
@@ -16,14 +16,18 @@ export default function ProfileScreen({
   onLogout,
 }) {
   const [addressDraft, setAddressDraft] = useState(profile.address || '');
+  const [addressConfirmed, setAddressConfirmed] = useState(Boolean(profile.address));
   const [locationEnabled, setLocationEnabled] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
+  const [addressSaved, setAddressSaved] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     setAddressDraft(profile.address || '');
+    setAddressConfirmed(Boolean(profile.address));
+    setAddressSaved(false);
   }, [profile.address]);
 
   const handleSaveAddress = async () => {
@@ -35,6 +39,7 @@ export default function ProfileScreen({
     setError('');
     try {
       await onSaveAddress(addressDraft.trim());
+      setAddressSaved(true);
     } catch (saveError) {
       setError(saveError.message || 'Unable to save address.');
     } finally {
@@ -60,18 +65,22 @@ export default function ProfileScreen({
       <Text style={styles.subtitle}>{profile.email}</Text>
 
       <View style={styles.card}>
-        <InputField
+        <AddressAutocompleteInput
           label="Primary address"
           placeholder="123 Spring Garden Rd"
           value={addressDraft}
-          onChangeText={setAddressDraft}
+          onSelect={(description) => {
+            setAddressDraft(description);
+            setAddressConfirmed(true);
+          }}
+          onClear={() => { setAddressConfirmed(false); setAddressSaved(false); }}
         />
         <PrimaryButton
-          title="Save Address"
+          title={addressSaved ? 'Address Saved' : 'Save Address'}
           onPress={handleSaveAddress}
-          disabled={!addressDraft.trim()}
+          disabled={!addressConfirmed}
           loading={savingAddress}
-          secondary
+          secondary={!addressSaved}
         />
       </View>
 

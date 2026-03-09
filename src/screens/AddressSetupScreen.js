@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import InputField from '../components/InputField';
+import AddressAutocompleteInput from '../components/AddressAutocompleteInput';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors, spacing, radius } from '../constants/theme';
 
@@ -11,6 +11,7 @@ export default function AddressSetupScreen({
   initialNotificationsEnabled = true,
 }) {
   const [address, setAddress] = useState(initialAddress);
+  const [addressConfirmed, setAddressConfirmed] = useState(Boolean(initialAddress));
   const [notificationsEnabled, setNotificationsEnabled] = useState(initialNotificationsEnabled);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -41,11 +42,15 @@ export default function AddressSetupScreen({
       </Text>
 
       <View style={styles.card}>
-        <InputField
+        <AddressAutocompleteInput
           label="Address"
           placeholder="123 Spring Garden Rd, Halifax"
           value={address}
-          onChangeText={setAddress}
+          onSelect={(description) => {
+            setAddress(description);
+            setAddressConfirmed(true);
+          }}
+          onClear={() => setAddressConfirmed(false)}
         />
 
         <View style={styles.prefRow}>
@@ -67,7 +72,7 @@ export default function AddressSetupScreen({
 
       <PrimaryButton
         title="Continue to Dashboard"
-        disabled={!address.trim()}
+        disabled={!addressConfirmed}
         onPress={handleComplete}
         loading={saving}
       />
