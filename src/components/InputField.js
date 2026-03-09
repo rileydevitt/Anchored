@@ -4,8 +4,8 @@ import { colors, spacing, radius } from '../constants/theme';
 
 export default function InputField({ label, ...props }) {
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={[styles.container, label && styles.containerWithLabel]}>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
       <TextInput
         placeholderTextColor={colors.muted}
         style={styles.input}
@@ -16,7 +16,8 @@ export default function InputField({ label, ...props }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: {},
+  containerWithLabel: {
     gap: spacing.xs,
   },
   label: {
