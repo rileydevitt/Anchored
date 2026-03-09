@@ -4,17 +4,8 @@ import * as Calendar from 'expo-calendar';
 const APP_CALENDAR_TITLE = 'Anchored Pickup Days';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
-function stripZoneLabels(value) {
-  return value
-    .split('•')
-    .map((part) => part.trim())
-    .filter((part) => part && !part.toLowerCase().includes('zone'))
-    .join(' • ');
-}
-
 function buildEventTitle(service) {
-  const summary = stripZoneLabels(service.items || '');
-  return summary ? `Anchored pickup: ${summary}` : 'Anchored pickup day';
+  return service.items ? `Anchored pickup: ${service.items}` : 'Anchored pickup day';
 }
 
 function getAllDayRange(dateISO) {
@@ -92,31 +83,30 @@ export async function exportPickupScheduleToCalendar({ address, services }) {
     })
   );
 
-  let createdCount = 0;
-  let skippedCount = 0;
+  const results = await Promise.all(
+    datedServices.map((service) => {
+      const title = buildEventTitle(service);
+      const eventKey = `${title}|${service.dateISO}`;
 
-  for (const service of datedServices) {
-    const title = buildEventTitle(service);
-    const eventKey = `${title}|${service.dateISO}`;
+      if (existingEventKeys.has(eventKey)) {
+        return Promise.resolve(false);
+      }
 
-    if (existingEventKeys.has(eventKey)) {
-      skippedCount += 1;
-      continue;
-    }
+      const { startDate, endDate } = getAllDayRange(service.dateISO);
 
-    const { startDate, endDate } = getAllDayRange(service.dateISO);
+      return Calendar.createEventAsync(calendarId, {
+        title,
+        startDate,
+        endDate,
+        allDay: true,
+        location: address,
+        notes: 'Municipal pickup schedule exported from Anchored.',
+      }).then(() => true);
+    })
+  );
 
-    await Calendar.createEventAsync(calendarId, {
-      title,
-      startDate,
-      endDate,
-      allDay: true,
-      location: address,
-      notes: 'Municipal pickup schedule exported from Anchored.',
-    });
-
-    createdCount += 1;
-  }
+  const createdCount = results.filter(Boolean).length;
+  const skippedCount = results.length - createdCount;
 
   return {
     createdCount,

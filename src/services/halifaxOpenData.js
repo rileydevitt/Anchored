@@ -5,6 +5,8 @@ const SOLID_WASTE_QUERY_URL =
 const CITYWORKS_REQUESTS_QUERY_URL =
   'https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/arcgis/rest/services/Cityworks_Service_Requests/FeatureServer/0/query';
 
+const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
+
 const WEEKDAY_INDEX = {
   SUNDAY: 0,
   MONDAY: 1,
@@ -247,7 +249,7 @@ function getWeekParity(anchorDate, targetDate) {
   const target = new Date(targetDate);
   target.setHours(0, 0, 0, 0);
 
-  const weekDiff = Math.floor((target.getTime() - anchor.getTime()) / (7 * 24 * 60 * 60 * 1000));
+  const weekDiff = Math.floor((target.getTime() - anchor.getTime()) / WEEK_IN_MS);
   return Math.abs(weekDiff % 2);
 }
 
