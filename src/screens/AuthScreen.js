@@ -62,8 +62,7 @@ export default function AuthScreen({ mode, setMode, onSubmit }) {
       <View style={styles.form}>
         {isRegister ? (
           <InputField
-            label="Full name"
-            placeholder="Riley Devitt"
+            placeholder="Full Name"
             value={fullName}
             onChangeText={setFullName}
             autoCapitalize="words"
@@ -71,8 +70,7 @@ export default function AuthScreen({ mode, setMode, onSubmit }) {
         ) : null}
 
         <InputField
-          label="Email"
-          placeholder="you@example.com"
+          placeholder="Email"
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -80,8 +78,7 @@ export default function AuthScreen({ mode, setMode, onSubmit }) {
         />
 
         <InputField
-          label="Password"
-          placeholder="••••••••"
+          placeholder="Pasword"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
