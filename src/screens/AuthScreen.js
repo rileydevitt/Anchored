@@ -94,14 +94,14 @@ export default function AuthScreen({ mode, setMode, onSubmit }) {
           loading={loading}
         />
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      </View>
+        <View style={styles.switcher}>
+          <Text style={styles.switchText}>{isRegister ? 'Already have an account?' : 'Need an account?'}</Text>
+          <Pressable onPress={() => setMode(isRegister ? 'login' : 'register')}>
+            <Text style={styles.switchAction}>{isRegister ? 'Sign In' : 'Register'}</Text>
+          </Pressable>
+        </View>
 
-      <View style={styles.switcher}>
-        <Text style={styles.switchText}>{isRegister ? 'Already have an account?' : 'Need an account?'}</Text>
-        <Pressable onPress={() => setMode(isRegister ? 'login' : 'register')}>
-          <Text style={styles.switchAction}>{isRegister ? 'Sign In' : 'Register'}</Text>
-        </Pressable>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </View>
     </View>
   );
@@ -143,12 +143,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   switcher: {
-    marginTop: 'auto',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.xs,
-    paddingBottom: 24,
   },
   switchText: {
     color: colors.muted,
