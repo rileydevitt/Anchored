@@ -110,13 +110,13 @@ export default function HomeScreen({
                 <View style={styles.scheduleHeader}>
                   <Text style={styles.scheduleTitle}>Upcoming Schedule</Text>
                   <Pressable
-                    disabled={exportingCalendar || !upcomingServices.length}
+                    disabled={exportingCalendar}
                     onPress={handleExportCalendar}
                   >
                     <Text
                       style={[
                         styles.scheduleAction,
-                        (exportingCalendar || !upcomingServices.length) && styles.scheduleActionDisabled,
+                        exportingCalendar && styles.scheduleActionDisabled,
                       ]}
                     >
                       {exportingCalendar ? 'Exporting...' : 'Add to Calendar'}
