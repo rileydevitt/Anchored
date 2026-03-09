@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../constants/theme';
 import { fetchAddressSuggestions } from '../services/googlePlaces';
 
@@ -58,12 +59,21 @@ export default function AddressAutocompleteInput({ label, placeholder, value, on
     onSelect(description);
   };
 
+  const handleClear = () => {
+    setQuery('');
+    setIsSelected(false);
+    setSuggestions([]);
+    clearTimeout(debounceTimer.current);
+    Keyboard.dismiss();
+    onClear();
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.inputWrap}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, query.length > 0 && styles.inputWithClear]}
           placeholder={placeholder}
           placeholderTextColor={colors.muted}
           value={query}
@@ -71,6 +81,11 @@ export default function AddressAutocompleteInput({ label, placeholder, value, on
           autoCapitalize="words"
           autoCorrect={false}
         />
+        {query.length > 0 ? (
+          <Pressable style={styles.clearButton} onPress={handleClear} hitSlop={8}>
+            <MaterialIcons name="close" size={16} color={colors.muted} />
+          </Pressable>
+        ) : null}
         {suggestions.length > 0 && !isSelected ? (
           <FlatList
             style={styles.dropdown}
@@ -122,6 +137,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     color: colors.text,
     fontSize: 16,
+  },
+  inputWithClear: {
+    paddingRight: 44,
+  },
+  clearButton: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dropdown: {
     position: 'absolute',
