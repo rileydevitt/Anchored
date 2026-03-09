@@ -9,12 +9,15 @@
       "backgroundColor": "#F9FAFB"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./AnchoredIcon.png"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#F9FAFB"
-      }
+        "backgroundColor": "#F9FAFB",
+        "foregroundImage": "./AnchoredIcon.png"
+      },
+      "icon": "./AnchoredIcon.png"
     },
     "web": {
       "bundler": "metro"

@@ -19,6 +19,8 @@ import BottomTabBar from './src/components/BottomTabBar';
 import { colors } from './src/constants/theme';
 import { loadHalifaxDashboardData } from './src/services/halifaxOpenData';
 import { auth, db } from './firebase';
+import Image from 'react-native';
+import AnchoredIcon from './AnchoredIcon.png';
 
 const DEFAULT_PROFILE = {
   name: 'Halifax Resident',
