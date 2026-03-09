@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import AddressAutocompleteInput from '../components/AddressAutocompleteInput';
@@ -60,7 +60,11 @@ export default function ProfileScreen({
   };
 
   return (
-    <View style={styles.root}>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>Profile & Settings</Text>
       <Text style={styles.subtitle}>{profile.email}</Text>
 
@@ -121,7 +125,7 @@ export default function ProfileScreen({
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
       <PrimaryButton title="Log Out" onPress={handleLogout} loading={loggingOut} />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -149,8 +153,11 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
     gap: spacing.md,
   },
   title: {
