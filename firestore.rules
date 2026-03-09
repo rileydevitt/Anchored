@@ -1,8 +1,30 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function hasEmailIdentity() {
+      return isSignedIn() && request.auth.token.email != null;
+    }
+
+    function hasVerifiedEmail() {
+      return hasEmailIdentity() && request.auth.token.email_verified == true;
+    }
+
+    function emailMatchesAuth() {
+      return request.resource.data.email == request.auth.token.email;
+    }
+
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if isOwner(userId) && hasVerifiedEmail();
+      allow create, update: if isOwner(userId) && hasVerifiedEmail() && emailMatchesAuth();
+      allow delete: if isOwner(userId) && hasVerifiedEmail();
     }
   }
 }

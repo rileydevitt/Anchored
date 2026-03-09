@@ -102,9 +102,7 @@ async function fetchArcGisJson(url, params) {
   return payload;
 }
 
-function escapeSqlLiteral(value) {
-  return String(value).replace(/'/g, "''");
-}
+const ARC_GIS_WHERE_TEXT = /^[A-Z0-9 ]+$/;
 
 function normalizeUpper(value) {
   return value
@@ -112,6 +110,28 @@ function normalizeUpper(value) {
     .replace(/[^A-Z0-9 ]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function toArcGisWhereNumber(value) {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error('Invalid civic number for ArcGIS where clause.');
+  }
+
+  return String(value);
+}
+
+function toArcGisWhereText(value, fieldName) {
+  const normalized = normalizeUpper(value);
+
+  if (!normalized) {
+    throw new Error(`Invalid ${fieldName} for ArcGIS where clause.`);
+  }
+
+  if (!ARC_GIS_WHERE_TEXT.test(normalized)) {
+    throw new Error(`Unsafe ${fieldName} for ArcGIS where clause.`);
+  }
+
+  return normalized;
 }
 
 function parseAddressInput(address) {
@@ -162,16 +182,16 @@ function parseAddressInput(address) {
 
 function createAddressWhereClause({ civicNumber, streetName, streetType, community }) {
   const conditions = [
-    `CIV_NUM = ${civicNumber}`,
-    `UPPER(STR_NAME) LIKE '${escapeSqlLiteral(streetName)}%'`,
+    `CIV_NUM = ${toArcGisWhereNumber(civicNumber)}`,
+    `UPPER(STR_NAME) LIKE '${toArcGisWhereText(streetName, 'street name')}%'`,
   ];
 
   if (streetType) {
-    conditions.push(`UPPER(STR_TYPE) = '${escapeSqlLiteral(streetType)}'`);
+    conditions.push(`UPPER(STR_TYPE) = '${toArcGisWhereText(streetType, 'street type')}'`);
   }
 
   if (community) {
-    conditions.push(`UPPER(GSA_NAME) LIKE '${escapeSqlLiteral(community)}%'`);
+    conditions.push(`UPPER(GSA_NAME) LIKE '${toArcGisWhereText(community, 'community')}%'`);
   }
 
   return conditions.join(' AND ');

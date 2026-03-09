@@ -5,7 +5,7 @@ import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors, spacing } from '../constants/theme';
 
-export default function AuthScreen({ mode, setMode, onSubmit }) {
+export default function AuthScreen({ mode, setMode, onSubmit, notice = '' }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -91,6 +91,8 @@ export default function AuthScreen({ mode, setMode, onSubmit }) {
           loading={loading}
         />
 
+        {notice ? <Text style={styles.noticeText}>{notice}</Text> : null}
+
         <View style={styles.switcher}>
           <Text style={styles.switchText}>{isRegister ? 'Already have an account?' : 'Need an account?'}</Text>
           <Pressable onPress={() => setMode(isRegister ? 'login' : 'register')}>
@@ -156,6 +158,12 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#B91C1C',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  noticeText: {
+    color: colors.halifaxBlue,
     fontSize: 13,
     lineHeight: 18,
     marginTop: 2,

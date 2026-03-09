@@ -5,6 +5,8 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  reload,
+  sendEmailVerification,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
@@ -50,6 +52,7 @@ const EMPTY_LIVE_DATA = {
 export default function App() {
   const [authMode, setAuthMode] = useState('login');
   const [authUser, setAuthUser] = useState(null);
+  const [authNotice, setAuthNotice] = useState('');
   const [hydratingSession, setHydratingSession] = useState(true);
   const [activeTab, setActiveTab] = useState('home');
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
@@ -62,9 +65,8 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setAuthUser(user);
-
       if (!user) {
+        setAuthUser(null);
         setProfile(DEFAULT_PROFILE);
         setHydratingSession(false);
         return;
@@ -73,14 +75,27 @@ export default function App() {
       setHydratingSession(true);
 
       try {
-        const userRef = doc(db, 'users', user.uid);
+        await reload(user);
+
+        const currentUser = auth.currentUser;
+
+        if (!currentUser?.emailVerified) {
+          setAuthNotice('Verify your email before signing in. Check your inbox for the verification link.');
+          await signOut(auth);
+          return;
+        }
+
+        setAuthNotice('');
+        setAuthUser(currentUser);
+
+        const userRef = doc(db, 'users', currentUser.uid);
         const userSnap = await getDoc(userRef);
 
         if (userSnap.exists()) {
           const data = userSnap.data();
           setProfile({
-            name: data.name || user.displayName || DEFAULT_PROFILE.name,
-            email: data.email || user.email || '',
+            name: data.name || currentUser.displayName || DEFAULT_PROFILE.name,
+            email: data.email || currentUser.email || '',
             address: data.address || '',
             notificationsEnabled:
               typeof data.notificationsEnabled === 'boolean'
@@ -90,8 +105,8 @@ export default function App() {
           });
         } else {
           const seededProfile = {
-            name: user.displayName || DEFAULT_PROFILE.name,
-            email: user.email || '',
+            name: currentUser.displayName || DEFAULT_PROFILE.name,
+            email: currentUser.email || '',
             address: '',
             notificationsEnabled: true,
             issueRadiusKm: DEFAULT_PROFILE.issueRadiusKm,
@@ -184,6 +199,12 @@ export default function App() {
         return 'Invalid email or password.';
       case 'auth/network-request-failed':
         return 'Network error. Please try again.';
+      case 'auth/email-not-verified':
+        return 'Verify your email before signing in.';
+      case 'auth/too-many-requests':
+        return 'Too many attempts. Try again later.';
+      case 'permission-denied':
+        return 'Your email must be verified before this account can be used.';
       default:
         return 'Authentication failed. Please try again.';
     }
@@ -208,29 +229,34 @@ export default function App() {
 
   const handleAuthSubmit = async ({ mode, fullName, email, password }) => {
     try {
+      setAuthNotice('');
+      const normalizedEmail = email.trim().toLowerCase();
+
       if (mode === 'register') {
-        const credentials = await createUserWithEmailAndPassword(auth, email, password);
+        const credentials = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
         if (fullName) {
           await updateProfile(credentials.user, { displayName: fullName });
         }
 
-        await setDoc(
-          doc(db, 'users', credentials.user.uid),
-          {
-            name: fullName || DEFAULT_PROFILE.name,
-            email,
-            address: '',
-            notificationsEnabled: true,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
+        await sendEmailVerification(credentials.user);
+        await signOut(auth);
+        setAuthMode('login');
+        setAuthNotice('Verification email sent. Open the link in your inbox, then sign in.');
         return;
       }
 
-      await signInWithEmailAndPassword(auth, email, password);
+      const credentials = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      await reload(credentials.user);
+
+      if (!credentials.user.emailVerified) {
+        await signOut(auth);
+        throw { code: 'auth/email-not-verified' };
+      }
     } catch (error) {
+      if (error?.code === 'auth/email-not-verified') {
+        setAuthNotice('Verify your email before signing in. If needed, register again to get a new link.');
+      }
+
       throw new Error(authErrorToMessage(error));
     }
   };
@@ -246,7 +272,14 @@ export default function App() {
     }
 
     if (!isAuthenticated) {
-      return <AuthScreen mode={authMode} setMode={setAuthMode} onSubmit={handleAuthSubmit} />;
+      return (
+        <AuthScreen
+          mode={authMode}
+          setMode={setAuthMode}
+          onSubmit={handleAuthSubmit}
+          notice={authNotice}
+        />
+      );
     }
 
     if (needsAddressSetup) {
