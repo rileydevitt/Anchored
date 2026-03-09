@@ -57,6 +57,28 @@ const STREET_TYPES = new Set([
   'WAY',
 ]);
 
+// Google Places returns full street type words. Map them to the ArcGIS abbreviations
+// used in the CivicAddresses dataset so the STR_TYPE filter works in attempts 1 & 2.
+const STREET_TYPE_ALIASES = new Map([
+  ['ALLEY', 'ALY'],
+  ['AVENUE', 'AVE'],
+  ['BOULEVARD', 'BLVD'],
+  ['BYPASS', 'BYP'],
+  ['CIRCLE', 'CIR'],
+  ['COURT', 'CRT'],
+  ['CRESCENT', 'CRES'],
+  ['DRIVE', 'DR'],
+  ['EXTENSION', 'EXT'],
+  ['GARDENS', 'GDNS'],
+  ['HIGHWAY', 'HWY'],
+  ['PARKWAY', 'PKY'],
+  ['ROAD', 'RD'],
+  ['SQUARE', 'SQ'],
+  ['STREET', 'ST'],
+  ['TERRACE', 'TERR'],
+  ['TRAIL', 'TRL'],
+]);
+
 function buildQueryString(params) {
   return Object.entries(params)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
@@ -118,6 +140,9 @@ function parseAddressInput(address) {
 
   if (STREET_TYPES.has(lastToken)) {
     streetType = lastToken;
+    tokens.pop();
+  } else if (STREET_TYPE_ALIASES.has(lastToken)) {
+    streetType = STREET_TYPE_ALIASES.get(lastToken);
     tokens.pop();
   }
 
