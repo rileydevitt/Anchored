@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../constants/theme';
 import { fetchAddressSuggestions } from '../services/googlePlaces';
@@ -87,17 +87,13 @@ export default function AddressAutocompleteInput({ label, placeholder, value, on
           </Pressable>
         ) : null}
         {suggestions.length > 0 && !isSelected ? (
-          <FlatList
-            style={styles.dropdown}
-            data={suggestions}
-            keyExtractor={(item) => item.placeId}
-            keyboardShouldPersistTaps="handled"
-            scrollEnabled={suggestions.length > 3}
-            renderItem={({ item, index }) => (
+          <View style={styles.dropdown}>
+            {suggestions.slice(0, 5).map((item, index) => (
               <Pressable
+                key={item.placeId}
                 style={({ pressed }) => [
                   styles.suggestion,
-                  index < suggestions.length - 1 && styles.suggestionBorder,
+                  index < Math.min(suggestions.length, 5) - 1 && styles.suggestionBorder,
                   pressed && styles.suggestionPressed,
                 ]}
                 onPress={() => handleSelect(item.description)}
@@ -106,8 +102,8 @@ export default function AddressAutocompleteInput({ label, placeholder, value, on
                   {item.description}
                 </Text>
               </Pressable>
-            )}
-          />
+            ))}
+          </View>
         ) : null}
       </View>
     </View>

@@ -2,6 +2,7 @@ export default {
   expo: {
     name: 'Anchored',
     slug: 'anchored',
+    scheme: 'anchored',
     version: '1.0.0',
     plugins: [
       [
