@@ -22,6 +22,7 @@ const iconForType = {
 
 const immediateMarkerColor = '#A44A17';
 const neighbourhoodMarkerColor = '#1E7A53';
+const homeMarkerColor = '#0B2F5B';
 
 function getMapMarkerDisplayLimit(radiusKm) {
   if (radiusKm <= 0.2) {
@@ -93,16 +94,22 @@ function markerColorForAlert(alert) {
   return alert.urgencyBucket === 'immediate' ? immediateMarkerColor : neighbourhoodMarkerColor;
 }
 
-function buildRegion(resolvedAddress, nearbyAlerts) {
+function buildRegion(resolvedAddress, nearbyAlerts, issueRadiusKm) {
   const latitude = resolvedAddress?.latitude ?? nearbyAlerts[0]?.latitude ?? DEFAULT_REGION.latitude;
   const longitude = resolvedAddress?.longitude ?? nearbyAlerts[0]?.longitude ?? DEFAULT_REGION.longitude;
+  const radiusPaddingFactor = 1.6;
+  const radiusLatitudeDelta = Math.max((issueRadiusKm / 111) * radiusPaddingFactor * 2, 0.01);
+  const radiusLongitudeDelta = Math.max(
+    (issueRadiusKm / Math.max(Math.cos((latitude * Math.PI) / 180) * 111, 0.1)) * radiusPaddingFactor * 2,
+    0.01
+  );
 
   if (!nearbyAlerts.length) {
     return {
       latitude,
       longitude,
-      latitudeDelta: 0.04,
-      longitudeDelta: 0.04,
+      latitudeDelta: radiusLatitudeDelta,
+      longitudeDelta: radiusLongitudeDelta,
     };
   }
 
@@ -116,8 +123,8 @@ function buildRegion(resolvedAddress, nearbyAlerts) {
   return {
     latitude: (maxLat + minLat) / 2,
     longitude: (maxLon + minLon) / 2,
-    latitudeDelta: Math.max((maxLat - minLat) * 1.6, 0.03),
-    longitudeDelta: Math.max((maxLon - minLon) * 1.6, 0.03),
+    latitudeDelta: Math.max((maxLat - minLat) * 1.6, radiusLatitudeDelta),
+    longitudeDelta: Math.max((maxLon - minLon) * 1.6, radiusLongitudeDelta),
   };
 }
 
@@ -130,8 +137,8 @@ export default function MapScreen({ resolvedAddress, nearbyAlerts, issueRadiusKm
     .filter((alert) => alert.urgencyBucket !== 'immediate')
     .sort(byClosestThenNewest);
   const displayedAlerts = pickDisplayedAlerts(immediateAlerts, neighbourhoodAlerts, markerLimit);
-  const region = buildRegion(resolvedAddress, nearbyAlerts);
-  const mapKey = `${region.latitude}:${region.longitude}:${displayedAlerts.length}`;
+  const region = buildRegion(resolvedAddress, nearbyAlerts, issueRadiusKm);
+  const mapKey = `${region.latitude}:${region.longitude}:${displayedAlerts.length}:${issueRadiusKm}`;
   const [selectedAlert, setSelectedAlert] = useState(null);
   const immediateCount = displayedAlerts.filter((alert) => alert.urgencyBucket === 'immediate').length;
   const neighbourhoodCount = displayedAlerts.length - immediateCount;
@@ -216,7 +223,7 @@ const captureAndRedirect = async () => {
                 latitude: resolvedAddress.latitude,
                 longitude: resolvedAddress.longitude,
               }}
-              pinColor={colors.halifaxBlue}
+              pinColor={homeMarkerColor}
               title="Saved address"
               description={resolvedAddress.canonicalAddress}
             />
@@ -225,7 +232,7 @@ const captureAndRedirect = async () => {
                 latitude: resolvedAddress.latitude,
                 longitude: resolvedAddress.longitude,
               }}
-              radius={500}
+              radius={issueRadiusKm * 1000}
               fillColor="rgba(0, 75, 141, 0.10)"
               strokeColor="rgba(0, 75, 141, 0.28)"
             />
