@@ -19,7 +19,9 @@ import MapScreen from './src/screens/MapScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import BottomTabBar from './src/components/BottomTabBar';
 import { colors } from './src/constants/theme';
-import { loadHalifaxDashboardData } from './src/services/halifaxOpenData';
+import {
+  loadHalifaxDashboardData,
+} from './src/services/halifaxOpenData';
 import {
   cancelPickupReminders,
   ensurePickupReminderPermissions,
@@ -38,7 +40,7 @@ const DEFAULT_PROFILE = {
   address: '',
   notificationsEnabled: false,
   reminderHour: 20,
-  issueRadiusKm: 5,
+  issueRadiusKm: 0.5,
 };
 
 function normalizeIssueRadiusKm(value) {
@@ -48,7 +50,8 @@ function normalizeIssueRadiusKm(value) {
     return DEFAULT_PROFILE.issueRadiusKm;
   }
 
-  return Math.min(10, Math.max(1, Math.round(numericValue)));
+  const clampedValue = Math.min(1, Math.max(0.1, numericValue));
+  return Math.round(clampedValue * 10) / 10;
 }
 
 const EMPTY_LIVE_DATA = {
@@ -466,6 +469,7 @@ export default function App() {
           <MapScreen
             resolvedAddress={liveData.resolvedAddress}
             nearbyAlerts={liveData.nearbyAlerts}
+            issueRadiusKm={profile.issueRadiusKm}
           />
         );
       case 'profile':

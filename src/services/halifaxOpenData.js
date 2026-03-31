@@ -21,6 +21,113 @@ const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEKDAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+const DEFAULT_ISSUE_LOOKBACK_DAYS = 30;
+
+const HOMEOWNER_ALERT_CATEGORY_ALLOWLIST = new Set([
+  'PARKING',
+  'ROWMAINTENANCE',
+  'ROWSERVICES',
+  'SOLIDWASTE',
+  'TRAFFICMAINTENANCE',
+  'TRAFFICSERVICES',
+  'COMMUNITYSAFETY',
+]);
+
+const HOMEOWNER_ALERT_DESCRIPTION_ALLOWLIST = new Set([
+  'ILLEGALLY PARKED VEHICLE',
+  'OBSTRUCTIONS',
+  'STREET SIGN MISSING OR DAMAGED',
+  'TRAFFIC SIGNALS',
+  'PAVEMENT MARKINGS',
+  'STREET SURFACE MAINTENANCE',
+  'WALKING SURFACE MAINTENANCE',
+  'DRAINAGE INFRASTRUCTURE MAINTENANCE OR REPAIR',
+  'DRAINAGE INFRASTRUCTURE REQUEST',
+  'FLOODING REQUESTS',
+  'WINTER FLOODING',
+  'SNOW OPERATIONS - URGENT',
+  'SNOW OPERATIONS - NON-URGENT',
+  'SNOW DAMAGE',
+  'CURBSIDE SOLID WASTE',
+  'GRAFFITI',
+  'ROW LIGHTS',
+  'ELECTRICAL INCIDENT OR REQUEST',
+  'UTILITY RELATED STREET CUTS AND TRENCHES',
+  'DECEASED ANIMALS',
+]);
+
+const HOMEOWNER_ALERT_DESCRIPTION_KEYWORDS = [
+  'FLOOD',
+  'DRAINAGE',
+  'SIDEWALK',
+  'ROAD',
+  'STREET',
+  'SNOW',
+  'PARKING',
+  'TRAFFIC',
+  'SIGN',
+  'LIGHT',
+  'GRAFFITI',
+  'LITTER',
+  'WASTE',
+  'OBSTRUCTION',
+];
+
+const LOW_SIGNAL_DESCRIPTION_KEYWORDS = [
+  'INQUIR',
+  'MARKETING',
+  'POLIC',
+  'PLANNING',
+  'SCHEDULING',
+  'MAIL OUT',
+  'DESIGN',
+  'COMMENT',
+];
+
+const FRIENDLY_ALERT_TITLE_BY_DESCRIPTION = new Map([
+  ['ILLEGALLY PARKED VEHICLE', 'Illegal parking'],
+  ['OBSTRUCTIONS', 'Road obstruction'],
+  ['STREET SIGN MISSING OR DAMAGED', 'Street sign issue'],
+  ['TRAFFIC SIGNALS', 'Traffic signal issue'],
+  ['PAVEMENT MARKINGS', 'Road markings issue'],
+  ['STREET SURFACE MAINTENANCE', 'Road surface issue'],
+  ['WALKING SURFACE MAINTENANCE', 'Sidewalk issue'],
+  ['DRAINAGE INFRASTRUCTURE MAINTENANCE OR REPAIR', 'Drainage issue'],
+  ['DRAINAGE INFRASTRUCTURE REQUEST', 'Drainage issue'],
+  ['FLOODING REQUESTS', 'Flooding risk'],
+  ['WINTER FLOODING', 'Winter flooding risk'],
+  ['SNOW OPERATIONS - URGENT', 'Urgent snow clearing issue'],
+  ['SNOW OPERATIONS - NON-URGENT', 'Snow clearing issue'],
+  ['SNOW DAMAGE', 'Snow damage report'],
+  ['CURBSIDE SOLID WASTE', 'Curbside waste issue'],
+  ['GRAFFITI', 'Graffiti report'],
+  ['ROW LIGHTS', 'Street light issue'],
+  ['ELECTRICAL INCIDENT OR REQUEST', 'Street light issue'],
+  ['UTILITY RELATED STREET CUTS AND TRENCHES', 'Utility trench issue'],
+  ['DECEASED ANIMALS', 'Deceased animal pickup'],
+]);
+
+const IMMEDIATE_ALERT_CATEGORIES = new Set([
+  'PARKING',
+  'TRAFFICMAINTENANCE',
+  'TRAFFICSERVICES',
+  'COMMUNITYSAFETY',
+]);
+
+const IMMEDIATE_ALERT_DESCRIPTION_KEYWORDS = [
+  'SNOW',
+  'OBSTRUCTION',
+  'FLOOD',
+  'DRAINAGE',
+  'TRAFFIC SIGNAL',
+  'ILLEGALLY PARKED',
+  'PAVEMENT',
+  'STREET SURFACE',
+  'WALKING SURFACE',
+  'STREET CUT',
+  'TRENCH',
+];
+
 const STREET_TYPES = new Set([
   'ALY',
   'AVE',
@@ -424,6 +531,66 @@ function formatRelativeTime(dateValue) {
   return `${diffDays} days ago`;
 }
 
+function formatExactDateTime(dateValue) {
+  if (!dateValue) {
+    return '';
+  }
+
+  const date = new Date(dateValue);
+
+  return new Intl.DateTimeFormat('en-CA', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function formatPriorityLabel(value) {
+  if (!value) {
+    return '';
+  }
+
+  return `Priority ${String(value).trim()}`;
+}
+
+function formatCategoryLabel(value) {
+  if (!value) {
+    return 'General';
+  }
+
+  const normalizedValue = String(value).trim().toUpperCase();
+
+  if (normalizedValue === 'ROWSERVICES') {
+    return 'Road Services';
+  }
+
+  return toTitleCase(normalizedValue.replace(/SERVICES/g, ' SERVICES'));
+}
+
+function formatDepartmentLabel(value) {
+  if (!value) {
+    return '';
+  }
+
+  const normalizedValue = String(value).trim().toUpperCase();
+
+  if (normalizedValue === 'PW') {
+    return 'Public Works';
+  }
+
+  return toTitleCase(normalizedValue);
+}
+
+function formatWorkOrderLabel(value) {
+  if (!value) {
+    return '';
+  }
+
+  return String(value).trim().toUpperCase() === 'Y' ? 'Work order created' : 'Awaiting work order';
+}
+
 function haversineDistanceKm(lat1, lon1, lat2, lon2) {
   const toRadians = (value) => (value * Math.PI) / 180;
   const earthRadiusKm = 6371;
@@ -447,9 +614,67 @@ function formatDistance(distanceKm) {
   return `${distanceKm.toFixed(1)} km away`;
 }
 
+function toArcGisUtcDateLiteral(daysBack) {
+  const days = Math.max(1, Math.round(Number(daysBack) || DEFAULT_ISSUE_LOOKBACK_DAYS));
+  const threshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const year = threshold.getUTCFullYear();
+  const month = String(threshold.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(threshold.getUTCDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function isHomeownerRelevantIssue(attributes) {
+  const category = String(attributes.REQUEST_CATEGORY || '').trim().toUpperCase();
+  const description = String(attributes.DESCRIPTION || '').trim().toUpperCase();
+
+  if (LOW_SIGNAL_DESCRIPTION_KEYWORDS.some((keyword) => description.includes(keyword))) {
+    return false;
+  }
+
+  if (HOMEOWNER_ALERT_CATEGORY_ALLOWLIST.has(category)) {
+    return true;
+  }
+
+  if (HOMEOWNER_ALERT_DESCRIPTION_ALLOWLIST.has(description)) {
+    return true;
+  }
+
+  return HOMEOWNER_ALERT_DESCRIPTION_KEYWORDS.some((keyword) => description.includes(keyword));
+}
+
+function formatAlertTitle(value) {
+  const normalized = String(value || '').trim().toUpperCase();
+
+  if (!normalized) {
+    return 'Cityworks request';
+  }
+
+  if (FRIENDLY_ALERT_TITLE_BY_DESCRIPTION.has(normalized)) {
+    return FRIENDLY_ALERT_TITLE_BY_DESCRIPTION.get(normalized);
+  }
+
+  return toTitleCase(normalized);
+}
+
+function classifyAlertBucket(attributes) {
+  const category = String(attributes.REQUEST_CATEGORY || '').trim().toUpperCase();
+  const description = String(attributes.DESCRIPTION || '').trim().toUpperCase();
+
+  if (IMMEDIATE_ALERT_CATEGORIES.has(category)) {
+    return 'immediate';
+  }
+
+  if (IMMEDIATE_ALERT_DESCRIPTION_KEYWORDS.some((keyword) => description.includes(keyword))) {
+    return 'immediate';
+  }
+
+  return 'neighbourhood';
+}
+
 export async function fetchNearbyCityworksIssues(
   { latitude, longitude },
-  { radiusKm = 5, limit = 12 } = {}
+  { radiusKm = 0.5, limit, maxIssueAgeDays = DEFAULT_ISSUE_LOOKBACK_DAYS } = {}
 ) {
   const latitudeDelta = radiusKm / 111;
   const longitudeDelta = radiusKm / Math.max(Math.cos((latitude * Math.PI) / 180) * 111, 0.1);
@@ -457,8 +682,10 @@ export async function fetchNearbyCityworksIssues(
   const maxLat = latitude + latitudeDelta;
   const minLon = longitude - longitudeDelta;
   const maxLon = longitude + longitudeDelta;
+  const minInitiatedDate = toArcGisUtcDateLiteral(maxIssueAgeDays);
   const where = [
     "STATUS <> 'CLOSED'",
+    `DATE_INITIATED >= DATE '${minInitiatedDate}'`,
     'LATITUDE IS NOT NULL',
     'LONGITUDE IS NOT NULL',
     `LATITUDE BETWEEN ${minLat} AND ${maxLat}`,
@@ -468,14 +695,16 @@ export async function fetchNearbyCityworksIssues(
   const payload = await fetchArcGisJson(CITYWORKS_REQUESTS_QUERY_URL, {
     where,
     outFields:
-      'REQUEST_ID,DESCRIPTION,REQUEST_CATEGORY,ADDRESS,COMMUNITY,STATUS,DATE_INITIATED,LATITUDE,LONGITUDE,RESOLUTION',
+      'REQUEST_ID,DESCRIPTION,REQUEST_CATEGORY,ADDRESS,COMMUNITY,DISTRICT,STATUS,PRIORITY,DEPT_RESPONSIBILITY,WORK_ORDER,DATE_INITIATED,DATE_CLOSED,LATITUDE,LONGITUDE,RESOLUTION',
     orderByFields: 'DATE_INITIATED DESC',
-    resultRecordCount: 40,
+    resultRecordCount: 1000,
     f: 'json',
   });
 
-  const issues = (payload.features || [])
-    .map(({ attributes }) => {
+  const sortedIssues = (payload.features || [])
+    .map((feature) => feature.attributes || {})
+    .filter((attributes) => isHomeownerRelevantIssue(attributes))
+    .map((attributes) => {
       const distanceKm = haversineDistanceKm(
         latitude,
         longitude,
@@ -486,10 +715,9 @@ export async function fetchNearbyCityworksIssues(
       return {
         id: String(attributes.REQUEST_ID),
         type: toCategoryType(attributes),
-        title: (attributes.DESCRIPTION || 'Cityworks request').trim(),
-        description: [toTitleCase(attributes.REQUEST_CATEGORY || ''), attributes.ADDRESS]
-          .filter(Boolean)
-          .join(' • '),
+        urgencyBucket: classifyAlertBucket(attributes),
+        title: formatAlertTitle(attributes.DESCRIPTION),
+        description: attributes.ADDRESS ? `Near ${attributes.ADDRESS}` : formatCategoryLabel(attributes.REQUEST_CATEGORY),
         meta: [
           formatRelativeTime(attributes.DATE_INITIATED),
           attributes.STATUS,
@@ -499,25 +727,48 @@ export async function fetchNearbyCityworksIssues(
           .join(' • '),
         status: attributes.STATUS || '',
         category: attributes.REQUEST_CATEGORY || '',
+        categoryLabel: formatCategoryLabel(attributes.REQUEST_CATEGORY),
+        statusLabel: toTitleCase(attributes.STATUS || 'Open'),
         address: attributes.ADDRESS || '',
         community: attributes.COMMUNITY || '',
+        district: attributes.DISTRICT || '',
+        priority: attributes.PRIORITY || '',
+        priorityLabel: formatPriorityLabel(attributes.PRIORITY),
+        department: formatDepartmentLabel(attributes.DEPT_RESPONSIBILITY),
+        resolution: attributes.RESOLUTION || '',
+        workOrder: attributes.WORK_ORDER || '',
+        workOrderLabel: formatWorkOrderLabel(attributes.WORK_ORDER),
         initiatedAt: attributes.DATE_INITIATED || null,
+        initiatedAtLabel: formatRelativeTime(attributes.DATE_INITIATED),
+        exactInitiatedAt: formatExactDateTime(attributes.DATE_INITIATED),
+        closedAt: attributes.DATE_CLOSED || null,
+        exactClosedAt: formatExactDateTime(attributes.DATE_CLOSED),
         distanceKm,
+        distanceLabel: formatDistance(distanceKm),
         latitude: attributes.LATITUDE,
         longitude: attributes.LONGITUDE,
       };
     })
-    .sort((left, right) => left.distanceKm - right.distanceKm)
-    .slice(0, limit);
+    .filter((issue) => issue.distanceKm <= radiusKm)
+    .sort((left, right) => left.distanceKm - right.distanceKm);
 
-  return issues;
+  if (Number.isFinite(limit) && limit > 0) {
+    return sortedIssues.slice(0, limit);
+  }
+
+  return sortedIssues;
 }
 
-export async function loadHalifaxDashboardData(address, { issueRadiusKm = 5 } = {}) {
+export async function loadHalifaxDashboardData(address, {
+  issueRadiusKm = 0.5,
+} = {}) {
   const resolvedAddress = await resolveHalifaxAddress(address);
   const [wasteSchedule, nearbyAlerts] = await Promise.all([
     fetchWasteCollectionSchedule(resolvedAddress),
-    fetchNearbyCityworksIssues(resolvedAddress, { radiusKm: issueRadiusKm }),
+    fetchNearbyCityworksIssues(resolvedAddress, {
+      radiusKm: issueRadiusKm,
+      maxIssueAgeDays: DEFAULT_ISSUE_LOOKBACK_DAYS,
+    }),
   ]);
 
   return {

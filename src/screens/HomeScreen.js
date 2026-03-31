@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../constants/theme';
+import AlertDetailSheet from '../components/AlertDetailSheet';
 import { exportPickupScheduleToCalendar } from '../services/calendarExport';
 
 const iconForType = {
@@ -9,6 +10,8 @@ const iconForType = {
   traffic: 'traffic',
   info: 'info',
 };
+
+const HOME_ALERTS_PER_BUCKET = 4;
 
 function iconForCollectionItem(item) {
   const value = item.toLowerCase();
@@ -36,6 +39,17 @@ function formatScheduleLine(value) {
     .join(' • ');
 }
 
+function byClosestThenNewest(left, right) {
+  const leftDistance = Number.isFinite(left.distanceKm) ? left.distanceKm : Number.POSITIVE_INFINITY;
+  const rightDistance = Number.isFinite(right.distanceKm) ? right.distanceKm : Number.POSITIVE_INFINITY;
+
+  if (leftDistance !== rightDistance) {
+    return leftDistance - rightDistance;
+  }
+
+  return (right.initiatedAt || 0) - (left.initiatedAt || 0);
+}
+
 export default function HomeScreen({
   address,
   nextCollection,
@@ -46,11 +60,20 @@ export default function HomeScreen({
   onViewMap,
 }) {
   const [exportingCalendar, setExportingCalendar] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [showImmediate, setShowImmediate] = useState(true);
+  const [showNeighbourhood, setShowNeighbourhood] = useState(false);
   const additionalServices = upcomingServices.slice(1);
   const visibleCollectionItems = (nextCollection?.items || []).filter((item) => !isZoneLabel(item));
-  const alertsByNewest = [...nearbyAlerts].sort(
-    (left, right) => (right.initiatedAt || 0) - (left.initiatedAt || 0)
-  );
+  const immediateAlertsAll = nearbyAlerts
+    .filter((item) => item.urgencyBucket === 'immediate')
+    .sort(byClosestThenNewest);
+  const neighbourhoodAlertsAll = nearbyAlerts
+    .filter((item) => item.urgencyBucket !== 'immediate')
+    .sort(byClosestThenNewest);
+  const immediateAlerts = immediateAlertsAll.slice(0, HOME_ALERTS_PER_BUCKET);
+  const neighbourhoodAlerts = neighbourhoodAlertsAll.slice(0, HOME_ALERTS_PER_BUCKET);
+  const visibleAlertCount = immediateAlerts.length + neighbourhoodAlerts.length;
 
   const handleExportCalendar = async () => {
     setExportingCalendar(true);
@@ -148,31 +171,34 @@ export default function HomeScreen({
 
       <View style={styles.sectionHead}>
         <Text style={styles.sectionTitle}>Nearby Alerts</Text>
-        <Pressable onPress={onViewMap}>
-          <Text style={styles.mapLink}>View Map</Text>
-        </Pressable>
       </View>
 
       <View style={styles.alertList}>
         {loading ? (
           <LoadingState label="Loading nearby Cityworks requests..." />
-        ) : alertsByNewest.length ? (
-          alertsByNewest.map((item, idx) => (
-            <View key={item.id} style={[styles.alertRow, idx < alertsByNewest.length - 1 && styles.divider]}>
-              <View style={styles.iconWrap}>
-                <MaterialIcons
-                  name={iconForType[item.type] || 'info'}
-                  size={20}
-                  color={colors.halifaxBlue}
-                />
-              </View>
-              <View style={styles.alertBody}>
-                <Text style={styles.alertTitle}>{item.title}</Text>
-                <Text style={styles.alertDescription}>{item.description}</Text>
-                <Text style={styles.alertMeta}>{item.meta}</Text>
-              </View>
-            </View>
-          ))
+        ) : visibleAlertCount ? (
+          <>
+            <BucketSection
+              title="Immediate"
+              subtitle="Safety and access around your home"
+              tone="immediate"
+              items={immediateAlerts}
+              expanded={showImmediate}
+              onToggle={() => setShowImmediate((prev) => !prev)}
+              onSelectAlert={setSelectedAlert}
+              onViewMap={onViewMap}
+            />
+            <BucketSection
+              title="Neighbourhood"
+              subtitle="Quality and maintenance nearby"
+              tone="neighbourhood"
+              items={neighbourhoodAlerts}
+              expanded={showNeighbourhood}
+              onToggle={() => setShowNeighbourhood((prev) => !prev)}
+              onSelectAlert={setSelectedAlert}
+              onViewMap={onViewMap}
+            />
+          </>
         ) : (
           <EmptyState label={error || 'No nearby open civic requests were found for this address.'} />
         )}
@@ -185,6 +211,12 @@ export default function HomeScreen({
         </View>
         <MaterialIcons name="arrow-forward" size={20} color="#fff" />
       </Pressable>
+
+      <AlertDetailSheet
+        alertItem={selectedAlert}
+        visible={Boolean(selectedAlert)}
+        onClose={() => setSelectedAlert(null)}
+      />
     </ScrollView>
   );
 }
@@ -202,6 +234,103 @@ function EmptyState({ label }) {
   return (
     <View style={styles.stateWrap}>
       <Text style={styles.stateText}>{label}</Text>
+    </View>
+  );
+}
+
+function BucketSection({
+  title,
+  subtitle,
+  tone,
+  items,
+  expanded,
+  onToggle,
+  onSelectAlert,
+  onViewMap,
+}) {
+  const hasHiddenItems = items.length > 0;
+
+  return (
+    <View style={styles.bucketSection}>
+      <Pressable
+        onPress={onToggle}
+        style={({ pressed }) => [
+          styles.bucketHeader,
+          tone === 'immediate' ? styles.bucketHeaderImmediate : styles.bucketHeaderNeighbourhood,
+          pressed && styles.bucketHeaderPressed,
+        ]}
+      >
+        <View style={styles.bucketCopy}>
+          <Text style={styles.bucketTitle}>{title}</Text>
+          <Text style={styles.bucketSubtitle}>{subtitle}</Text>
+        </View>
+        <View style={styles.bucketRight}>
+          <View
+            style={[
+              styles.bucketCountPill,
+              tone === 'immediate' ? styles.bucketCountPillImmediate : styles.bucketCountPillNeighbourhood,
+            ]}
+          >
+            <Text
+              style={[
+                styles.bucketCountText,
+                tone === 'immediate' ? styles.bucketCountTextImmediate : styles.bucketCountTextNeighbourhood,
+              ]}
+            >
+              {items.length}
+            </Text>
+          </View>
+          <MaterialIcons
+            name={expanded ? 'expand-less' : 'expand-more'}
+            size={20}
+            color={colors.muted}
+          />
+        </View>
+      </Pressable>
+
+      {expanded ? (
+        items.length ? (
+          <>
+            <View style={styles.bucketBody}>
+              {items.map((item, idx) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => onSelectAlert(item)}
+                  style={({ pressed }) => [
+                    styles.alertRow,
+                    idx < items.length - 1 && styles.divider,
+                    pressed && styles.alertRowPressed,
+                  ]}
+                >
+                  <View style={[styles.iconWrap, tone === 'immediate' ? styles.iconWrapImmediate : styles.iconWrapNeighbourhood]}>
+                    <MaterialIcons
+                      name={iconForType[item.type] || 'info'}
+                      size={20}
+                      color={tone === 'immediate' ? '#A44A17' : '#1E7A53'}
+                    />
+                  </View>
+                  <View style={styles.alertBody}>
+                    <Text style={styles.alertTitle}>{item.title}</Text>
+                    <Text style={styles.alertDescription}>{item.description}</Text>
+                    <Text style={styles.alertMeta}>{item.meta}</Text>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color={colors.muted} />
+                </Pressable>
+              ))}
+            </View>
+
+            {hasHiddenItems ? (
+              <Pressable onPress={onViewMap} style={styles.bucketHintWrap}>
+                <Text style={styles.bucketHintText}>
+                  Showing closest {items.length}. View map for all.
+                </Text>
+              </Pressable>
+            ) : null}
+          </>
+        ) : (
+          <Text style={styles.bucketEmpty}>No current alerts in this bucket.</Text>
+        )
+      ) : null}
     </View>
   );
 }
@@ -342,11 +471,105 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.card,
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  bucketSection: {
+    borderRadius: radius.card,
+    overflow: 'hidden',
+  },
+  bucketHeader: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  bucketHeaderImmediate: {
+    backgroundColor: '#F8EFE7',
+  },
+  bucketHeaderNeighbourhood: {
+    backgroundColor: '#EAF6F0',
+  },
+  bucketHeaderPressed: {
+    opacity: 0.8,
+  },
+  bucketCopy: {
+    flex: 1,
+  },
+  bucketTitle: {
+    color: colors.text,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  bucketSubtitle: {
+    marginTop: 2,
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  bucketRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  bucketCountPill: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  bucketCountPillImmediate: {
+    backgroundColor: '#F2DCC8',
+  },
+  bucketCountPillNeighbourhood: {
+    backgroundColor: '#D6ECE0',
+  },
+  bucketCountText: {
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  bucketCountTextImmediate: {
+    color: '#A44A17',
+  },
+  bucketCountTextNeighbourhood: {
+    color: '#1E7A53',
+  },
+  bucketBody: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  bucketEmpty: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    color: colors.muted,
+    fontSize: 12,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.sm,
+  },
+  bucketHintWrap: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  bucketHintText: {
+    color: colors.halifaxBlue,
+    fontSize: 12,
+    fontWeight: '600',
   },
   alertRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
     paddingVertical: spacing.md,
+  },
+  alertRowPressed: {
+    opacity: 0.8,
   },
   divider: {
     borderBottomWidth: 1,
@@ -361,6 +584,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconWrapImmediate: {
+    backgroundColor: '#FDF4ED',
+    borderColor: '#F2DDCB',
+  },
+  iconWrapNeighbourhood: {
+    backgroundColor: '#F2FBF6',
+    borderColor: '#D5ECE1',
   },
   alertBody: {
     flex: 1,
