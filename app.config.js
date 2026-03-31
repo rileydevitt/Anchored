@@ -5,6 +5,7 @@ export default {
     scheme: 'anchored',
     version: '1.0.0',
     plugins: [
+      'expo-notifications',
       [
         'expo-calendar',
         {
@@ -53,6 +54,7 @@ export default {
         'android.permission.READ_EXTERNAL_STORAGE',
         'android.permission.READ_CALENDAR',
         'android.permission.WRITE_CALENDAR',
+        'android.permission.POST_NOTIFICATIONS',
         'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
         'android.permission.ACCESS_MEDIA_LOCATION',
         'android.permission.READ_MEDIA_VIDEO',

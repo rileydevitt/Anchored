@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -20,15 +20,24 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import BottomTabBar from './src/components/BottomTabBar';
 import { colors } from './src/constants/theme';
 import { loadHalifaxDashboardData } from './src/services/halifaxOpenData';
+import {
+  cancelPickupReminders,
+  ensurePickupReminderPermissions,
+  formatReminderHourLabel,
+  getPickupReminderPermissionGranted,
+  initializePickupReminders,
+  normalizeReminderHour,
+  syncPickupReminders,
+} from './src/services/pickupReminders';
 import { auth, db } from './firebase';
-import Image from 'react-native';
 import AnchoredIcon from './AnchoredIcon.png';
 
 const DEFAULT_PROFILE = {
   name: 'Halifax Resident',
   email: '',
   address: '',
-  notificationsEnabled: true,
+  notificationsEnabled: false,
+  reminderHour: 20,
   issueRadiusKm: 5,
 };
 
@@ -60,8 +69,45 @@ export default function App() {
   const [loadingLiveData, setLoadingLiveData] = useState(false);
   const [liveDataError, setLiveDataError] = useState('');
 
+  const reconcileReminderPermission = async (nextProfile, options = {}) => {
+    const { persistIfDisabled = false } = options;
+
+    if (!nextProfile.notificationsEnabled) {
+      return nextProfile;
+    }
+
+    const permissionGranted = await getPickupReminderPermissionGranted();
+
+    if (permissionGranted) {
+      return nextProfile;
+    }
+
+    if (persistIfDisabled && auth.currentUser) {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await setDoc(
+        userRef,
+        {
+          notificationsEnabled: false,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    return {
+      ...nextProfile,
+      notificationsEnabled: false,
+    };
+  };
+
   const isAuthenticated = Boolean(authUser);
   const needsAddressSetup = isAuthenticated && !hydratingSession && !profile.address;
+
+  useEffect(() => {
+    initializePickupReminders().catch((error) => {
+      console.error('Failed to initialize pickup reminders', error);
+    });
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -93,7 +139,7 @@ export default function App() {
 
         if (userSnap.exists()) {
           const data = userSnap.data();
-          setProfile({
+          const nextProfile = await reconcileReminderPermission({
             name: data.name || currentUser.displayName || DEFAULT_PROFILE.name,
             email: data.email || currentUser.email || '',
             address: data.address || '',
@@ -101,16 +147,20 @@ export default function App() {
               typeof data.notificationsEnabled === 'boolean'
                 ? data.notificationsEnabled
                 : DEFAULT_PROFILE.notificationsEnabled,
+            reminderHour: normalizeReminderHour(data.reminderHour),
             issueRadiusKm: normalizeIssueRadiusKm(data.issueRadiusKm),
-          });
+          }, { persistIfDisabled: true });
+
+          setProfile(nextProfile);
         } else {
-          const seededProfile = {
+          const seededProfile = await reconcileReminderPermission({
             name: currentUser.displayName || DEFAULT_PROFILE.name,
             email: currentUser.email || '',
             address: '',
-            notificationsEnabled: true,
+            notificationsEnabled: DEFAULT_PROFILE.notificationsEnabled,
+            reminderHour: DEFAULT_PROFILE.reminderHour,
             issueRadiusKm: DEFAULT_PROFILE.issueRadiusKm,
-          };
+          });
 
           setProfile(seededProfile);
           await setDoc(
@@ -129,7 +179,8 @@ export default function App() {
           name: user.displayName || DEFAULT_PROFILE.name,
           email: user.email || '',
           address: '',
-          notificationsEnabled: true,
+          notificationsEnabled: DEFAULT_PROFILE.notificationsEnabled,
+          reminderHour: DEFAULT_PROFILE.reminderHour,
           issueRadiusKm: DEFAULT_PROFILE.issueRadiusKm,
         });
       } finally {
@@ -139,6 +190,66 @@ export default function App() {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return undefined;
+    }
+
+    let isActive = true;
+
+    const refreshReminderPermission = async () => {
+      if (!profile.notificationsEnabled) {
+        return;
+      }
+
+      try {
+        const permissionGranted = await getPickupReminderPermissionGranted();
+
+        if (!isActive || permissionGranted) {
+          return;
+        }
+
+        setProfile((prev) => {
+          if (!prev.notificationsEnabled) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            notificationsEnabled: false,
+          };
+        });
+
+        if (auth.currentUser) {
+          const userRef = doc(db, 'users', auth.currentUser.uid);
+          await setDoc(
+            userRef,
+            {
+              notificationsEnabled: false,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        }
+      } catch (error) {
+        console.error('Failed to refresh pickup reminder permission state', error);
+      }
+    };
+
+    refreshReminderPermission();
+
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        refreshReminderPermission();
+      }
+    });
+
+    return () => {
+      isActive = false;
+      subscription.remove();
+    };
+  }, [isAuthenticated, profile.notificationsEnabled]);
 
   useEffect(() => {
     let isActive = true;
@@ -184,6 +295,40 @@ export default function App() {
       isActive = false;
     };
   }, [hydratingSession, isAuthenticated, profile.address, profile.issueRadiusKm]);
+
+  useEffect(() => {
+    const syncReminders = async () => {
+      try {
+        if (!isAuthenticated || hydratingSession || !profile.notificationsEnabled || !profile.address) {
+          await cancelPickupReminders();
+          return;
+        }
+
+        if (!liveData.upcomingServices.length) {
+          await cancelPickupReminders();
+          return;
+        }
+
+        await syncPickupReminders({
+          address: liveData.resolvedAddress?.canonicalAddress || profile.address,
+          services: liveData.upcomingServices,
+          reminderHour: profile.reminderHour,
+        });
+      } catch (error) {
+        console.error('Failed to sync pickup reminders', error);
+      }
+    };
+
+    syncReminders();
+  }, [
+    hydratingSession,
+    isAuthenticated,
+    liveData.resolvedAddress?.canonicalAddress,
+    liveData.upcomingServices,
+    profile.address,
+    profile.notificationsEnabled,
+    profile.reminderHour,
+  ]);
 
   const authErrorToMessage = (error) => {
     switch (error?.code) {
@@ -287,8 +432,28 @@ export default function App() {
         <AddressSetupScreen
           initialAddress={profile.address}
           initialNotificationsEnabled={profile.notificationsEnabled}
-          onComplete={async ({ address, notificationsEnabled }) => {
-            await saveProfilePatch({ address, notificationsEnabled });
+          initialReminderHour={profile.reminderHour}
+          onComplete={async ({ address, notificationsEnabled, reminderHour }) => {
+            let nextNotificationsEnabled = notificationsEnabled;
+            const nextReminderHour = normalizeReminderHour(reminderHour);
+
+            if (notificationsEnabled) {
+              try {
+                await ensurePickupReminderPermissions();
+              } catch (error) {
+                nextNotificationsEnabled = false;
+                Alert.alert(
+                  'Reminders left off',
+                  `Notification permission was denied, so pickup reminders were not enabled. Your reminder time is still saved as ${formatReminderHourLabel(nextReminderHour)}.`
+                );
+              }
+            }
+
+            await saveProfilePatch({
+              address,
+              notificationsEnabled: nextNotificationsEnabled,
+              reminderHour: nextReminderHour,
+            });
             setActiveTab('home');
           }}
         />
@@ -308,6 +473,7 @@ export default function App() {
           <ProfileScreen
             profile={profile}
             remindersEnabled={profile.notificationsEnabled}
+            reminderHour={profile.reminderHour}
             issueRadiusKm={profile.issueRadiusKm}
             onSaveAddress={async (address) => {
               const nextAddress = address || profile.address;
@@ -315,10 +481,17 @@ export default function App() {
             }}
             onToggleReminders={async (value) => {
               try {
+                if (value) {
+                  await ensurePickupReminderPermissions();
+                }
+
                 await saveProfilePatch({ notificationsEnabled: value });
               } catch (error) {
-                console.error('Failed to update reminder preference', error);
+                throw error;
               }
+            }}
+            onChangeReminderHour={async (value) => {
+              await saveProfilePatch({ reminderHour: normalizeReminderHour(value) });
             }}
             onChangeIssueRadius={async (value) => {
               try {

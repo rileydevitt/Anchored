@@ -119,7 +119,7 @@ export default function HomeScreen({
                         exportingCalendar && styles.scheduleActionDisabled,
                       ]}
                     >
-                      {exportingCalendar ? 'Exporting...' : 'Add to Calendar'}
+                      {exportingCalendar ? 'Exporting...' : 'Add Schedule to Calendar'}
                     </Text>
                   </Pressable>
                 </View>
