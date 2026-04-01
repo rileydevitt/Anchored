@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../constants/theme';
 import AlertDetailSheet from '../components/AlertDetailSheet';
+import PermitDetailSheet from '../components/PermitDetailSheet';
 import { exportPickupScheduleToCalendar } from '../services/calendarExport';
 
 const iconForType = {
@@ -12,6 +13,7 @@ const iconForType = {
 };
 
 const HOME_ALERTS_PER_BUCKET = 4;
+const HOME_PERMITS_LIMIT = 4;
 
 function iconForCollectionItem(item) {
   const value = item.toLowerCase();
@@ -55,14 +57,20 @@ export default function HomeScreen({
   nextCollection,
   upcomingServices,
   nearbyAlerts,
+  nearbyPermits = [],
+  liveDataDelta,
+  homeBuckets,
+  onChangeHomeBuckets,
   loading,
   error,
   onViewMap,
 }) {
   const [exportingCalendar, setExportingCalendar] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState(null);
-  const [showImmediate, setShowImmediate] = useState(true);
-  const [showNeighbourhood, setShowNeighbourhood] = useState(false);
+  const [selectedPermit, setSelectedPermit] = useState(null);
+  const showImmediate = homeBuckets?.showImmediate ?? true;
+  const showNeighbourhood = homeBuckets?.showNeighbourhood ?? false;
+  const showPermits = homeBuckets?.showPermits ?? false;
   const additionalServices = upcomingServices.slice(1);
   const visibleCollectionItems = (nextCollection?.items || []).filter((item) => !isZoneLabel(item));
   const immediateAlertsAll = nearbyAlerts
@@ -74,6 +82,23 @@ export default function HomeScreen({
   const immediateAlerts = immediateAlertsAll.slice(0, HOME_ALERTS_PER_BUCKET);
   const neighbourhoodAlerts = neighbourhoodAlertsAll.slice(0, HOME_ALERTS_PER_BUCKET);
   const visibleAlertCount = immediateAlerts.length + neighbourhoodAlerts.length;
+  const visiblePermits = nearbyPermits.slice(0, HOME_PERMITS_LIMIT);
+  const hasNewInsights =
+    Number(liveDataDelta?.newAlertCount || 0) > 0 || Number(liveDataDelta?.newPermitCount || 0) > 0;
+
+  const openExternalUrl = async (url, failureMessage) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+
+      if (!supported) {
+        throw new Error('unsupported-url');
+      }
+
+      await Linking.openURL(url);
+    } catch (externalError) {
+      Alert.alert('Action unavailable', failureMessage);
+    }
+  };
 
   const handleExportCalendar = async () => {
     setExportingCalendar(true);
@@ -105,6 +130,16 @@ export default function HomeScreen({
           <Text style={styles.location}>{address || 'Halifax, NS'}</Text>
         </View>
       </View>
+
+      {!loading && hasNewInsights ? (
+        <View style={styles.digestCard}>
+          <Text style={styles.digestTitle}>Since your last refresh</Text>
+          <Text style={styles.digestText}>
+            {liveDataDelta.newAlertCount} new alert{liveDataDelta.newAlertCount === 1 ? '' : 's'} and{' '}
+            {liveDataDelta.newPermitCount} new permit{liveDataDelta.newPermitCount === 1 ? '' : 's'} in your area.
+          </Text>
+        </View>
+      ) : null}
 
       <View style={styles.sectionHead}>
         <Text style={styles.sectionTitle}>Next Collection</Text>
@@ -175,8 +210,8 @@ export default function HomeScreen({
 
       <View style={styles.alertList}>
         {loading ? (
-          <LoadingState label="Loading nearby Cityworks requests..." />
-        ) : visibleAlertCount ? (
+          <LoadingState label="Loading nearby civic activity..." />
+        ) : visibleAlertCount || visiblePermits.length ? (
           <>
             <BucketSection
               title="Immediate"
@@ -184,7 +219,12 @@ export default function HomeScreen({
               tone="immediate"
               items={immediateAlerts}
               expanded={showImmediate}
-              onToggle={() => setShowImmediate((prev) => !prev)}
+              onToggle={() =>
+                onChangeHomeBuckets((prev) => ({
+                  ...prev,
+                  showImmediate: !prev.showImmediate,
+                }))
+              }
               onSelectAlert={setSelectedAlert}
               onViewMap={onViewMap}
             />
@@ -194,28 +234,74 @@ export default function HomeScreen({
               tone="neighbourhood"
               items={neighbourhoodAlerts}
               expanded={showNeighbourhood}
-              onToggle={() => setShowNeighbourhood((prev) => !prev)}
+              onToggle={() =>
+                onChangeHomeBuckets((prev) => ({
+                  ...prev,
+                  showNeighbourhood: !prev.showNeighbourhood,
+                }))
+              }
               onSelectAlert={setSelectedAlert}
+              onViewMap={onViewMap}
+            />
+            <BucketSection
+              title="Permits"
+              subtitle="Building and development activity nearby"
+              tone="permits"
+              items={visiblePermits}
+              expanded={showPermits}
+              onToggle={() =>
+                onChangeHomeBuckets((prev) => ({
+                  ...prev,
+                  showPermits: !prev.showPermits,
+                }))
+              }
+              onSelectPermit={setSelectedPermit}
               onViewMap={onViewMap}
             />
           </>
         ) : (
-          <EmptyState label={error || 'No nearby open civic requests were found for this address.'} />
+          <EmptyState label={error || 'No nearby civic activity was found for this address.'} />
         )}
       </View>
 
-      <Pressable style={styles.reportButton}>
-        <View style={styles.reportLeft}>
-          <MaterialIcons name="add-circle" size={20} color="#fff" />
-          <Text style={styles.reportText}>Report a Civic Issue</Text>
+      <View style={styles.helpCard}>
+        <Text style={styles.helpTitle}>Need to report a civic issue?</Text>
+        <Text style={styles.helpText}>
+          Anchored surfaces local issues, but reporting is handled by Halifax 311.
+        </Text>
+        <View style={styles.helpActions}>
+          <Pressable
+            style={styles.helpActionButton}
+            onPress={() => openExternalUrl('tel:311', 'Calling 311 is not available on this device.')}
+          >
+            <MaterialIcons name="call" size={16} color={colors.halifaxBlue} />
+            <Text style={styles.helpActionText}>Call 311</Text>
+          </Pressable>
+          <Pressable
+            style={styles.helpActionButton}
+            onPress={() =>
+              openExternalUrl(
+                'https://www.halifax.ca/home/online-services',
+                'The Halifax online services page could not be opened.'
+              )
+            }
+          >
+            <MaterialIcons name="open-in-new" size={16} color={colors.halifaxBlue} />
+            <Text style={styles.helpActionText}>Open 311 Website</Text>
+          </Pressable>
         </View>
-        <MaterialIcons name="arrow-forward" size={20} color="#fff" />
-      </Pressable>
+      </View>
 
       <AlertDetailSheet
         alertItem={selectedAlert}
         visible={Boolean(selectedAlert)}
         onClose={() => setSelectedAlert(null)}
+      />
+
+      <PermitDetailSheet
+        permitItem={selectedPermit}
+        visible={Boolean(selectedPermit)}
+        onClose={() => setSelectedPermit(null)}
       />
     </ScrollView>
   );
@@ -246,9 +332,11 @@ function BucketSection({
   expanded,
   onToggle,
   onSelectAlert,
+  onSelectPermit,
   onViewMap,
 }) {
   const hasHiddenItems = items.length > 0;
+  const isPermitTone = tone === 'permits';
 
   return (
     <View style={styles.bucketSection}>
@@ -256,7 +344,11 @@ function BucketSection({
         onPress={onToggle}
         style={({ pressed }) => [
           styles.bucketHeader,
-          tone === 'immediate' ? styles.bucketHeaderImmediate : styles.bucketHeaderNeighbourhood,
+          tone === 'immediate'
+            ? styles.bucketHeaderImmediate
+            : isPermitTone
+              ? styles.bucketHeaderPermits
+              : styles.bucketHeaderNeighbourhood,
           pressed && styles.bucketHeaderPressed,
         ]}
       >
@@ -268,13 +360,21 @@ function BucketSection({
           <View
             style={[
               styles.bucketCountPill,
-              tone === 'immediate' ? styles.bucketCountPillImmediate : styles.bucketCountPillNeighbourhood,
+              tone === 'immediate'
+                ? styles.bucketCountPillImmediate
+                : isPermitTone
+                  ? styles.bucketCountPillPermits
+                  : styles.bucketCountPillNeighbourhood,
             ]}
           >
             <Text
               style={[
                 styles.bucketCountText,
-                tone === 'immediate' ? styles.bucketCountTextImmediate : styles.bucketCountTextNeighbourhood,
+                tone === 'immediate'
+                  ? styles.bucketCountTextImmediate
+                  : isPermitTone
+                    ? styles.bucketCountTextPermits
+                    : styles.bucketCountTextNeighbourhood,
               ]}
             >
               {items.length}
@@ -295,23 +395,36 @@ function BucketSection({
               {items.map((item, idx) => (
                 <Pressable
                   key={item.id}
-                  onPress={() => onSelectAlert(item)}
+                  onPress={() => (isPermitTone ? onSelectPermit(item) : onSelectAlert(item))}
                   style={({ pressed }) => [
                     styles.alertRow,
                     idx < items.length - 1 && styles.divider,
                     pressed && styles.alertRowPressed,
                   ]}
                 >
-                  <View style={[styles.iconWrap, tone === 'immediate' ? styles.iconWrapImmediate : styles.iconWrapNeighbourhood]}>
+                  <View
+                    style={[
+                      styles.iconWrap,
+                      tone === 'immediate'
+                        ? styles.iconWrapImmediate
+                        : isPermitTone
+                          ? styles.iconWrapPermits
+                          : styles.iconWrapNeighbourhood,
+                    ]}
+                  >
                     <MaterialIcons
-                      name={iconForType[item.type] || 'info'}
+                      name={isPermitTone ? 'home-work' : iconForType[item.type] || 'info'}
                       size={20}
-                      color={tone === 'immediate' ? '#A44A17' : '#1E7A53'}
+                      color={tone === 'immediate' ? '#A44A17' : isPermitTone ? '#0B2F5B' : '#1E7A53'}
                     />
                   </View>
                   <View style={styles.alertBody}>
                     <Text style={styles.alertTitle}>{item.title}</Text>
-                    <Text style={styles.alertDescription}>{item.description}</Text>
+                    <Text style={styles.alertDescription}>
+                      {isPermitTone
+                        ? (item.address ? `Near ${item.address}` : item.description)
+                        : item.description}
+                    </Text>
                     <Text style={styles.alertMeta}>{item.meta}</Text>
                   </View>
                   <MaterialIcons name="chevron-right" size={20} color={colors.muted} />
@@ -372,6 +485,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  digestCard: {
+    marginTop: spacing.xs,
+    borderRadius: radius.card,
+    backgroundColor: '#EEF4FB',
+    borderWidth: 1,
+    borderColor: '#CFE0F1',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: 4,
+  },
+  digestTitle: {
+    color: colors.halifaxBlue,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  digestText: {
+    color: colors.text,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
   },
   sectionTitle: {
     fontSize: 20,
@@ -493,6 +629,9 @@ const styles = StyleSheet.create({
   bucketHeaderNeighbourhood: {
     backgroundColor: '#EAF6F0',
   },
+  bucketHeaderPermits: {
+    backgroundColor: '#EAF0FB',
+  },
   bucketHeaderPressed: {
     opacity: 0.8,
   },
@@ -529,6 +668,9 @@ const styles = StyleSheet.create({
   bucketCountPillNeighbourhood: {
     backgroundColor: '#D6ECE0',
   },
+  bucketCountPillPermits: {
+    backgroundColor: '#CFE0F1',
+  },
   bucketCountText: {
     fontWeight: '800',
     fontSize: 12,
@@ -538,6 +680,9 @@ const styles = StyleSheet.create({
   },
   bucketCountTextNeighbourhood: {
     color: '#1E7A53',
+  },
+  bucketCountTextPermits: {
+    color: '#0B2F5B',
   },
   bucketBody: {
     borderTopWidth: 1,
@@ -593,6 +738,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2FBF6',
     borderColor: '#D5ECE1',
   },
+  iconWrapPermits: {
+    backgroundColor: '#F2F7FC',
+    borderColor: '#CFE0F1',
+  },
   alertBody: {
     flex: 1,
     gap: 3,
@@ -625,24 +774,45 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     textAlign: 'center',
   },
-  reportButton: {
+  helpCard: {
     marginTop: spacing.lg,
     borderRadius: radius.card,
-    backgroundColor: colors.halifaxBlue,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  reportLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingVertical: spacing.md,
     gap: spacing.sm,
   },
-  reportText: {
-    color: '#fff',
-    fontWeight: '700',
+  helpTitle: {
+    color: colors.text,
+    fontWeight: '800',
     fontSize: 15,
+  },
+  helpText: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  helpActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  helpActionButton: {
+    flex: 1,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: '#CFE0F1',
+    backgroundColor: '#F2F7FC',
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  helpActionText: {
+    color: colors.halifaxBlue,
+    fontWeight: '700',
+    fontSize: 13,
   },
 });

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View, Alert, Linking } from 'react-native'
 import { MaterialIcons } from '@expo/vector-icons';
 import MapView, { Circle, Marker } from 'react-native-maps';
 import AlertDetailSheet from '../components/AlertDetailSheet';
+import PermitDetailSheet from '../components/PermitDetailSheet';
 import { colors, radius, spacing } from '../constants/theme';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
@@ -22,6 +23,7 @@ const iconForType = {
 
 const immediateMarkerColor = '#A44A17';
 const neighbourhoodMarkerColor = '#1E7A53';
+const permitMarkerColor = '#004B8D';
 const homeMarkerColor = '#0B2F5B';
 
 function getMapMarkerDisplayLimit(radiusKm) {
@@ -42,6 +44,26 @@ function getMapMarkerDisplayLimit(radiusKm) {
   }
 
   return 40;
+}
+
+function getPermitMarkerDisplayLimit(radiusKm) {
+  if (radiusKm <= 0.2) {
+    return 6;
+  }
+
+  if (radiusKm <= 0.4) {
+    return 9;
+  }
+
+  if (radiusKm <= 0.6) {
+    return 12;
+  }
+
+  if (radiusKm <= 0.8) {
+    return 14;
+  }
+
+  return 16;
 }
 
 function byClosestThenNewest(left, right) {
@@ -94,9 +116,10 @@ function markerColorForAlert(alert) {
   return alert.urgencyBucket === 'immediate' ? immediateMarkerColor : neighbourhoodMarkerColor;
 }
 
-function buildRegion(resolvedAddress, nearbyAlerts, issueRadiusKm) {
-  const latitude = resolvedAddress?.latitude ?? nearbyAlerts[0]?.latitude ?? DEFAULT_REGION.latitude;
-  const longitude = resolvedAddress?.longitude ?? nearbyAlerts[0]?.longitude ?? DEFAULT_REGION.longitude;
+function buildRegion(resolvedAddress, nearbyAlerts, nearbyPermits, issueRadiusKm) {
+  const firstPoint = nearbyAlerts[0] || nearbyPermits[0];
+  const latitude = resolvedAddress?.latitude ?? firstPoint?.latitude ?? DEFAULT_REGION.latitude;
+  const longitude = resolvedAddress?.longitude ?? firstPoint?.longitude ?? DEFAULT_REGION.longitude;
   const radiusPaddingFactor = 1.6;
   const radiusLatitudeDelta = Math.max((issueRadiusKm / 111) * radiusPaddingFactor * 2, 0.01);
   const radiusLongitudeDelta = Math.max(
@@ -104,7 +127,9 @@ function buildRegion(resolvedAddress, nearbyAlerts, issueRadiusKm) {
     0.01
   );
 
-  if (!nearbyAlerts.length) {
+  const allPoints = nearbyAlerts.concat(nearbyPermits);
+
+  if (!allPoints.length) {
     return {
       latitude,
       longitude,
@@ -113,8 +138,8 @@ function buildRegion(resolvedAddress, nearbyAlerts, issueRadiusKm) {
     };
   }
 
-  const latitudes = nearbyAlerts.map((alert) => alert.latitude).concat(latitude);
-  const longitudes = nearbyAlerts.map((alert) => alert.longitude).concat(longitude);
+  const latitudes = allPoints.map((point) => point.latitude).concat(latitude);
+  const longitudes = allPoints.map((point) => point.longitude).concat(longitude);
   const maxLat = Math.max(...latitudes);
   const minLat = Math.min(...latitudes);
   const maxLon = Math.max(...longitudes);
@@ -128,8 +153,14 @@ function buildRegion(resolvedAddress, nearbyAlerts, issueRadiusKm) {
   };
 }
 
-export default function MapScreen({ resolvedAddress, nearbyAlerts, issueRadiusKm = 0.5 }) {
+export default function MapScreen({
+  resolvedAddress,
+  nearbyAlerts,
+  nearbyPermits = [],
+  issueRadiusKm = 0.5,
+}) {
   const markerLimit = getMapMarkerDisplayLimit(issueRadiusKm);
+  const permitMarkerLimit = getPermitMarkerDisplayLimit(issueRadiusKm);
   const immediateAlerts = nearbyAlerts
     .filter((alert) => alert.urgencyBucket === 'immediate')
     .sort(byClosestThenNewest);
@@ -137,11 +168,26 @@ export default function MapScreen({ resolvedAddress, nearbyAlerts, issueRadiusKm
     .filter((alert) => alert.urgencyBucket !== 'immediate')
     .sort(byClosestThenNewest);
   const displayedAlerts = pickDisplayedAlerts(immediateAlerts, neighbourhoodAlerts, markerLimit);
-  const region = buildRegion(resolvedAddress, nearbyAlerts, issueRadiusKm);
-  const mapKey = `${region.latitude}:${region.longitude}:${displayedAlerts.length}:${issueRadiusKm}`;
+  const displayedPermits = nearbyPermits.slice(0, permitMarkerLimit);
+  const region = buildRegion(resolvedAddress, nearbyAlerts, nearbyPermits, issueRadiusKm);
+  const [showImmediate, setShowImmediate] = useState(true);
+  const [showNeighbourhood, setShowNeighbourhood] = useState(true);
+  const [showPermits, setShowPermits] = useState(true);
+  const mapKey = `${region.latitude}:${region.longitude}:${issueRadiusKm}`;
   const [selectedAlert, setSelectedAlert] = useState(null);
+  const [selectedPermit, setSelectedPermit] = useState(null);
   const immediateCount = displayedAlerts.filter((alert) => alert.urgencyBucket === 'immediate').length;
   const neighbourhoodCount = displayedAlerts.length - immediateCount;
+  const permitCount = displayedPermits.length;
+  const visibleAlerts = displayedAlerts.filter((alert) => {
+    if (alert.urgencyBucket === 'immediate') {
+      return showImmediate;
+    }
+
+    return showNeighbourhood;
+  });
+  const visiblePermits = showPermits ? displayedPermits : [];
+  const hasVisibleLayers = showImmediate || showNeighbourhood || showPermits;
   const formattedRadiusLabel = issueRadiusKm < 1
     ? `${Math.round(issueRadiusKm * 1000)} m`
     : `${issueRadiusKm.toFixed(1)} km`;
@@ -239,7 +285,7 @@ const captureAndRedirect = async () => {
           </>
         ) : null}
 
-        {displayedAlerts.map((alert) => (
+        {visibleAlerts.map((alert) => (
           <Marker
             key={alert.id}
             coordinate={{ latitude: alert.latitude, longitude: alert.longitude }}
@@ -251,23 +297,52 @@ const captureAndRedirect = async () => {
             </View>
           </Marker>
         ))}
+
+        {visiblePermits.map((permit) => (
+          <Marker
+            key={permit.id}
+            coordinate={{ latitude: permit.latitude, longitude: permit.longitude }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            onPress={() => setSelectedPermit(permit)}
+          >
+            <View style={[styles.markerBadge, styles.permitMarkerBadge]}>
+              <MaterialIcons name="home-work" size={15} color="#fff" />
+            </View>
+          </Marker>
+        ))}
       </MapView>
 
       <View style={styles.overlay}>
         <View style={styles.topStack}>
           <Text style={styles.mapSummaryText}>
-            Nearby alerts within {formattedRadiusLabel}.
+            Nearby activity within {formattedRadiusLabel}.
           </Text>
           <View style={styles.legendRow}>
-            <View style={[styles.legendPill, styles.legendPillImmediate]}>
+            <Pressable
+              onPress={() => setShowImmediate((prev) => !prev)}
+              style={[styles.legendPill, styles.legendPillImmediate, !showImmediate && styles.legendPillMuted]}
+            >
               <View style={[styles.legendDot, styles.legendDotImmediate]} />
               <Text style={styles.legendText}>Immediate ({immediateCount})</Text>
-            </View>
-            <View style={[styles.legendPill, styles.legendPillNeighbourhood]}>
+            </Pressable>
+            <Pressable
+              onPress={() => setShowNeighbourhood((prev) => !prev)}
+              style={[styles.legendPill, styles.legendPillNeighbourhood, !showNeighbourhood && styles.legendPillMuted]}
+            >
               <View style={[styles.legendDot, styles.legendDotNeighbourhood]} />
               <Text style={styles.legendText}>Neighbourhood ({neighbourhoodCount})</Text>
-            </View>
+            </Pressable>
+            <Pressable
+              onPress={() => setShowPermits((prev) => !prev)}
+              style={[styles.legendPill, styles.legendPillPermits, !showPermits && styles.legendPillMuted]}
+            >
+              <View style={[styles.legendDot, styles.legendDotPermits]} />
+              <Text style={styles.legendText}>Permits ({permitCount})</Text>
+            </Pressable>
           </View>
+          {!hasVisibleLayers ? (
+            <Text style={styles.legendHintText}>Select at least one layer to show map activity.</Text>
+          ) : null}
         </View>
         <View style={styles.bottomStack}>
           <Pressable style={styles.captureButton} onPress={handleReportPress}>
@@ -281,6 +356,12 @@ const captureAndRedirect = async () => {
         alertItem={selectedAlert}
         visible={Boolean(selectedAlert)}
         onClose={() => setSelectedAlert(null)}
+      />
+
+      <PermitDetailSheet
+        permitItem={selectedPermit}
+        visible={Boolean(selectedPermit)}
+        onClose={() => setSelectedPermit(null)}
       />
     </View>
   );
@@ -335,6 +416,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#EAF6F0',
     borderColor: '#D5ECE1',
   },
+  legendPillPermits: {
+    backgroundColor: '#E8F1FA',
+    borderColor: '#B7D0EB',
+  },
+  legendPillMuted: {
+    opacity: 0.45,
+  },
   legendDot: {
     width: 8,
     height: 8,
@@ -346,10 +434,23 @@ const styles = StyleSheet.create({
   legendDotNeighbourhood: {
     backgroundColor: neighbourhoodMarkerColor,
   },
+  legendDotPermits: {
+    backgroundColor: permitMarkerColor,
+  },
   legendText: {
     color: colors.text,
     fontSize: 11,
     fontWeight: '700',
+  },
+  legendHintText: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '600',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    alignSelf: 'flex-start',
   },
   markerBadge: {
     width: 32,
@@ -364,6 +465,9 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+  },
+  permitMarkerBadge: {
+    backgroundColor: permitMarkerColor,
   },
   bottomStack: {
     gap: spacing.sm,

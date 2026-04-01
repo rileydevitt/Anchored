@@ -4,6 +4,8 @@ const SOLID_WASTE_QUERY_URL =
   'https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/arcgis/rest/services/SolidWasteCollectionAreas/FeatureServer/0/query';
 const CITYWORKS_REQUESTS_QUERY_URL =
   'https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/arcgis/rest/services/Cityworks_Service_Requests/FeatureServer/0/query';
+const PPLC_PERMITS_GEOLOCATED_QUERY_URL =
+  'https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/arcgis/rest/services/PPLC_Permits_Geolocated/FeatureServer/0/query';
 
 const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -22,6 +24,7 @@ const WEEKDAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'F
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const DEFAULT_ISSUE_LOOKBACK_DAYS = 30;
+const DEFAULT_PERMIT_LOOKBACK_DAYS = 90;
 
 const HOMEOWNER_ALERT_CATEGORY_ALLOWLIST = new Set([
   'PARKING',
@@ -672,6 +675,261 @@ function classifyAlertBucket(attributes) {
   return 'neighbourhood';
 }
 
+function formatPermitAddress(attributes) {
+  const civic = String(attributes.CIVIC_NUMBER || '').trim();
+  const street = String(attributes.STREET_NAME || '').trim();
+
+  if (!civic && !street) {
+    return '';
+  }
+
+  return [civic, street].filter(Boolean).join(' ');
+}
+
+function formatPermitValue(value) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return '';
+  }
+
+  return new Intl.NumberFormat('en-CA', {
+    style: 'currency',
+    currency: 'CAD',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatPermitTitle(attributes) {
+  const permitName = String(attributes.PERMIT_NAME || '').trim();
+  const workType = String(attributes.WORK_TYPE || '').trim();
+
+  if (permitName && workType) {
+    return `${permitName} - ${workType}`;
+  }
+
+  if (permitName) {
+    return permitName;
+  }
+
+  if (workType) {
+    return `${workType} permit`;
+  }
+
+  return 'Building permit';
+}
+
+function toPermitImpactLabel({ estimatedValue, netNewUnits, workType, typeLabel }) {
+  let score = 0;
+  const normalizedWorkType = String(workType || '').toUpperCase();
+  const normalizedTypeLabel = String(typeLabel || '').toUpperCase();
+
+  if (Number.isFinite(estimatedValue)) {
+    if (estimatedValue >= 1000000) {
+      score += 3;
+    } else if (estimatedValue >= 250000) {
+      score += 2;
+    } else if (estimatedValue >= 100000) {
+      score += 1;
+    }
+  }
+
+  if (Number.isFinite(netNewUnits)) {
+    if (netNewUnits >= 20) {
+      score += 3;
+    } else if (netNewUnits >= 5) {
+      score += 2;
+    } else if (netNewUnits > 0) {
+      score += 1;
+    }
+  }
+
+  if (normalizedWorkType.includes('NEW') || normalizedWorkType.includes('ADDITION')) {
+    score += 2;
+  } else if (normalizedWorkType.includes('RENOVATION')) {
+    score += 1;
+  }
+
+  if (normalizedTypeLabel.includes('MIXED USE') || normalizedTypeLabel.includes('MULTIPLE UNITS')) {
+    score += 1;
+  }
+
+  if (score >= 6) {
+    return 'High impact';
+  }
+
+  if (score >= 3) {
+    return 'Medium impact';
+  }
+
+  return 'Lower impact';
+}
+
+function buildPermitWhyItMatters({ distanceKm, estimatedValue, netNewUnits, workType, typeLabel }) {
+  const points = [];
+
+  if (distanceKm <= 0.25) {
+    points.push('Very close to your home area');
+  } else if (distanceKm <= 0.6) {
+    points.push('Within your immediate neighbourhood');
+  }
+
+  if (Number.isFinite(netNewUnits) && netNewUnits > 0) {
+    points.push(`Could add ${netNewUnits} new unit${netNewUnits === 1 ? '' : 's'}`);
+  }
+
+  if (Number.isFinite(estimatedValue) && estimatedValue >= 250000) {
+    points.push('Larger-value project that may have longer activity');
+  }
+
+  if (String(workType || '').toUpperCase().includes('ADDITION')) {
+    points.push('Addition work may change streetscape and parking patterns');
+  }
+
+  if (String(typeLabel || '').toUpperCase().includes('MIXED USE')) {
+    points.push('Mixed-use development can shift area activity levels');
+  }
+
+  return points.slice(0, 3);
+}
+
+function computePermitRelevanceScore({ distanceKm, issuedAt, estimatedValue, netNewUnits, workType }) {
+  const distanceScore = Math.max(0, 45 - Math.round(distanceKm * 50));
+  const daysSinceIssued = issuedAt ? Math.max(0, (Date.now() - issuedAt) / (1000 * 60 * 60 * 24)) : 90;
+  const recencyScore = Math.max(0, 25 - Math.round(daysSinceIssued / 4));
+  const valueScore = Number.isFinite(estimatedValue)
+    ? Math.min(20, Math.round(estimatedValue / 50000))
+    : 0;
+  const unitScore = Number.isFinite(netNewUnits) ? Math.min(15, netNewUnits) : 0;
+  const workTypeBonus = String(workType || '').toUpperCase().includes('ADDITION') ? 5 : 0;
+
+  return distanceScore + recencyScore + valueScore + unitScore + workTypeBonus;
+}
+
+export async function fetchNearbyBuildingPermits(
+  { latitude, longitude },
+  { radiusKm = 0.5, maxPermitAgeDays = DEFAULT_PERMIT_LOOKBACK_DAYS, limit } = {}
+) {
+  const minIssuedDate = toArcGisUtcDateLiteral(maxPermitAgeDays);
+  const where = [
+    `DATE_OF_PERMIT_ISSUANCE >= DATE '${minIssuedDate}'`,
+    "PERMIT_STATUS <> 'Completed'",
+    "PERMIT_STATUS <> 'Cancelled'",
+  ].join(' AND ');
+
+  const payload = await fetchArcGisJson(PPLC_PERMITS_GEOLOCATED_QUERY_URL, {
+    geometry: `${longitude},${latitude}`,
+    geometryType: 'esriGeometryPoint',
+    inSR: 4326,
+    spatialRel: 'esriSpatialRelIntersects',
+    distance: Math.round(radiusKm * 1000),
+    units: 'esriSRUnit_Meter',
+    where,
+    outFields:
+      'OBJECTID,PERMIT_NUMBER,PERMIT_NAME,WORK_TYPE,PRIMARY_WORK_SCOPE,PERMIT_STATUS,CIVIC_NUMBER,STREET_NAME,COMMUNITY,DISTRICT,WORK_DESCRIPTION,DATE_OF_PERMIT_ISSUANCE,DATE_OF_SUBMISSION,ESTIMATED_PROJECT_VALUE,TYPE_OF_STRUCTURE,NET_NEW_UNITS',
+    orderByFields: 'DATE_OF_PERMIT_ISSUANCE DESC',
+    resultRecordCount: 1000,
+    returnGeometry: true,
+    outSR: 4326,
+    f: 'json',
+  });
+
+  const permits = (payload.features || [])
+    .map((feature) => {
+      const attributes = feature.attributes || {};
+      const geometry = feature.geometry || {};
+
+      return {
+        attributes,
+        latitude: geometry.y,
+        longitude: geometry.x,
+      };
+    })
+    .filter((item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude))
+    .map((item) => {
+      const distanceKm = haversineDistanceKm(latitude, longitude, item.latitude, item.longitude);
+      const valueLabel = formatPermitValue(item.attributes.ESTIMATED_PROJECT_VALUE);
+      const workScope = String(item.attributes.PRIMARY_WORK_SCOPE || '').trim();
+      const issuedAt = item.attributes.DATE_OF_PERMIT_ISSUANCE || null;
+      const estimatedValue = item.attributes.ESTIMATED_PROJECT_VALUE;
+      const netNewUnits = Number.isFinite(item.attributes.NET_NEW_UNITS)
+        ? item.attributes.NET_NEW_UNITS
+        : null;
+      const workType = item.attributes.WORK_TYPE || '';
+      const typeLabel = item.attributes.TYPE_OF_STRUCTURE || '';
+      const impactLabel = toPermitImpactLabel({
+        estimatedValue,
+        netNewUnits,
+        workType,
+        typeLabel,
+      });
+      const relevanceScore = computePermitRelevanceScore({
+        distanceKm,
+        issuedAt,
+        estimatedValue,
+        netNewUnits,
+        workType,
+      });
+      const whyItMatters = buildPermitWhyItMatters({
+        distanceKm,
+        estimatedValue,
+        netNewUnits,
+        workType,
+        typeLabel,
+      });
+
+      return {
+        id: item.attributes.PERMIT_NUMBER || `permit-${item.attributes.OBJECTID}`,
+        permitNumber: item.attributes.PERMIT_NUMBER || '',
+        title: formatPermitTitle(item.attributes),
+        description:
+          item.attributes.WORK_DESCRIPTION ||
+          (workScope ? `${workScope} project` : 'Permit activity near your home'),
+        typeLabel: item.attributes.TYPE_OF_STRUCTURE || '',
+        statusLabel: toTitleCase(item.attributes.PERMIT_STATUS || 'Issued'),
+        workType,
+        workScope,
+        address: formatPermitAddress(item.attributes),
+        community: item.attributes.COMMUNITY || '',
+        district: item.attributes.DISTRICT || '',
+        issuedAt,
+        issuedAtLabel: formatRelativeTime(issuedAt),
+        exactIssuedAt: formatExactDateTime(issuedAt),
+        estimatedValue,
+        estimatedValueLabel: valueLabel,
+        netNewUnits,
+        typeLabel,
+        impactLabel,
+        relevanceScore,
+        whyItMatters,
+        distanceKm,
+        distanceLabel: formatDistance(distanceKm),
+        meta: [
+          impactLabel,
+          formatRelativeTime(issuedAt),
+          formatDistance(distanceKm),
+          valueLabel,
+        ]
+          .filter(Boolean)
+          .join(' • '),
+        latitude: item.latitude,
+        longitude: item.longitude,
+      };
+    })
+    .filter((permit) => permit.distanceKm <= radiusKm)
+    .sort((left, right) => {
+      if (left.relevanceScore !== right.relevanceScore) {
+        return right.relevanceScore - left.relevanceScore;
+      }
+
+      return left.distanceKm - right.distanceKm;
+    });
+
+  if (Number.isFinite(limit) && limit > 0) {
+    return permits.slice(0, limit);
+  }
+
+  return permits;
+}
+
 export async function fetchNearbyCityworksIssues(
   { latitude, longitude },
   { radiusKm = 0.5, limit, maxIssueAgeDays = DEFAULT_ISSUE_LOOKBACK_DAYS } = {}
@@ -763,12 +1021,16 @@ export async function loadHalifaxDashboardData(address, {
   issueRadiusKm = 0.5,
 } = {}) {
   const resolvedAddress = await resolveHalifaxAddress(address);
-  const [wasteSchedule, nearbyAlerts] = await Promise.all([
+  const [wasteSchedule, nearbyAlerts, nearbyPermits] = await Promise.all([
     fetchWasteCollectionSchedule(resolvedAddress),
     fetchNearbyCityworksIssues(resolvedAddress, {
       radiusKm: issueRadiusKm,
       maxIssueAgeDays: DEFAULT_ISSUE_LOOKBACK_DAYS,
     }),
+    fetchNearbyBuildingPermits(resolvedAddress, {
+      radiusKm: issueRadiusKm,
+      maxPermitAgeDays: DEFAULT_PERMIT_LOOKBACK_DAYS,
+    }).catch(() => []),
   ]);
 
   return {
@@ -776,5 +1038,6 @@ export async function loadHalifaxDashboardData(address, {
     nextCollection: wasteSchedule.nextCollection,
     upcomingServices: wasteSchedule.upcomingServices,
     nearbyAlerts,
+    nearbyPermits,
   };
 }

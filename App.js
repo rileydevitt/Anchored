@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -59,6 +59,13 @@ const EMPTY_LIVE_DATA = {
   nextCollection: null,
   upcomingServices: [],
   nearbyAlerts: [],
+  nearbyPermits: [],
+};
+
+const EMPTY_LIVE_DATA_DELTA = {
+  newAlertCount: 0,
+  newPermitCount: 0,
+  checkedAt: null,
 };
 
 export default function App() {
@@ -71,6 +78,13 @@ export default function App() {
   const [liveData, setLiveData] = useState(EMPTY_LIVE_DATA);
   const [loadingLiveData, setLoadingLiveData] = useState(false);
   const [liveDataError, setLiveDataError] = useState('');
+  const [liveDataDelta, setLiveDataDelta] = useState(EMPTY_LIVE_DATA_DELTA);
+  const [homeBuckets, setHomeBuckets] = useState({
+    showImmediate: true,
+    showNeighbourhood: false,
+    showPermits: false,
+  });
+  const previousLiveDataRef = useRef(EMPTY_LIVE_DATA);
 
   const reconcileReminderPermission = async (nextProfile, options = {}) => {
     const { persistIfDisabled = false } = options;
@@ -259,6 +273,8 @@ export default function App() {
 
     if (!isAuthenticated || hydratingSession || !profile.address) {
       setLiveData(EMPTY_LIVE_DATA);
+      previousLiveDataRef.current = EMPTY_LIVE_DATA;
+      setLiveDataDelta(EMPTY_LIVE_DATA_DELTA);
       setLoadingLiveData(false);
       setLiveDataError('');
       return undefined;
@@ -277,7 +293,28 @@ export default function App() {
           return;
         }
 
+        const previousLiveData = previousLiveDataRef.current;
+        const sameAddress =
+          previousLiveData.resolvedAddress?.canonicalAddress ===
+          nextLiveData.resolvedAddress?.canonicalAddress;
+
+        if (sameAddress) {
+          const previousAlertIds = new Set((previousLiveData.nearbyAlerts || []).map((item) => item.id));
+          const previousPermitIds = new Set((previousLiveData.nearbyPermits || []).map((item) => item.id));
+          const newAlertCount = (nextLiveData.nearbyAlerts || []).filter((item) => !previousAlertIds.has(item.id)).length;
+          const newPermitCount = (nextLiveData.nearbyPermits || []).filter((item) => !previousPermitIds.has(item.id)).length;
+
+          setLiveDataDelta({
+            newAlertCount,
+            newPermitCount,
+            checkedAt: Date.now(),
+          });
+        } else {
+          setLiveDataDelta(EMPTY_LIVE_DATA_DELTA);
+        }
+
         setLiveData(nextLiveData);
+        previousLiveDataRef.current = nextLiveData;
       } catch (error) {
         if (!isActive) {
           return;
@@ -469,6 +506,7 @@ export default function App() {
           <MapScreen
             resolvedAddress={liveData.resolvedAddress}
             nearbyAlerts={liveData.nearbyAlerts}
+            nearbyPermits={liveData.nearbyPermits}
             issueRadiusKm={profile.issueRadiusKm}
           />
         );
@@ -518,6 +556,10 @@ export default function App() {
             nextCollection={liveData.nextCollection}
             upcomingServices={liveData.upcomingServices}
             nearbyAlerts={liveData.nearbyAlerts}
+            nearbyPermits={liveData.nearbyPermits}
+            liveDataDelta={liveDataDelta}
+            homeBuckets={homeBuckets}
+            onChangeHomeBuckets={setHomeBuckets}
             loading={loadingLiveData}
             error={liveDataError}
             onViewMap={() => setActiveTab('map')}
@@ -531,6 +573,7 @@ export default function App() {
     isAuthenticated,
     liveData,
     liveDataError,
+    homeBuckets,
     loadingLiveData,
     needsAddressSetup,
     profile,
