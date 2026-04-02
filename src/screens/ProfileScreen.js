@@ -30,6 +30,10 @@ export default function ProfileScreen({
   const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState('');
 
+  const formattedRadiusLabel = issueRadiusKm < 1
+    ? `${Math.round(issueRadiusKm * 1000)} m`
+    : `${issueRadiusKm.toFixed(1)} km`;
+
   useEffect(() => {
     setAddressDraft(profile.address || '');
     setAddressConfirmed(Boolean(profile.address));
@@ -145,17 +149,17 @@ export default function ProfileScreen({
       <View style={styles.card}>
         <Text style={styles.settingTitle}>Nearby civic issues range</Text>
         <Text style={styles.settingSubtitle}>
-          Showing issues within {issueRadiusKm} km of your saved address.
+          Showing issues within <Text style={styles.rangeValueText}>{formattedRadiusLabel}</Text> of your saved address.
         </Text>
         <View style={styles.sliderWrap}>
           <View style={styles.sliderHeader}>
+            <Text style={styles.sliderLabel}>100 m</Text>
             <Text style={styles.sliderLabel}>1 km</Text>
-            <Text style={styles.sliderLabel}>10 km</Text>
           </View>
           <Slider
-            minimumValue={1}
-            maximumValue={10}
-            step={1}
+            minimumValue={0.1}
+            maximumValue={1}
+            step={0.1}
             value={issueRadiusKm}
             minimumTrackTintColor={colors.halifaxBlue}
             maximumTrackTintColor="#D1D5DB"
@@ -298,6 +302,10 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 12,
     fontWeight: '500',
+  },
+  rangeValueText: {
+    color: colors.halifaxBlue,
+    fontWeight: '700',
   },
   errorText: {
     color: '#B91C1C',
