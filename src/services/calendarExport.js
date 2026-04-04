@@ -8,6 +8,7 @@ function buildEventTitle(service) {
   return service.items ? `Anchored pickup: ${service.items}` : 'Anchored pickup day';
 }
 
+// Create an all-day event window for a pickup date.
 function getAllDayRange(dateISO) {
   const startDate = new Date(`${dateISO}T00:00:00`);
   const endDate = new Date(startDate.getTime() + DAY_IN_MS);
@@ -23,6 +24,7 @@ async function getCalendarSource() {
   return { isLocalAccount: true, name: APP_CALENDAR_TITLE };
 }
 
+// Reuse one app calendar instead of creating duplicates every time the user exports.
 async function ensureAnchoredCalendarAsync() {
   const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
   const existingCalendar = calendars.find((calendar) => calendar.title === APP_CALENDAR_TITLE);
@@ -45,6 +47,7 @@ async function ensureAnchoredCalendarAsync() {
   });
 }
 
+// Export pickup days and skip events that already exist in the Anchored calendar.
 export async function exportPickupScheduleToCalendar({ address, services }) {
   if (!services?.length) {
     throw new Error('No pickup dates are available to export yet.');

@@ -18,6 +18,7 @@ const iconForType = {
   info: 'info',
 };
 
+// Shared helper for buttons that open phone links or map links.
 async function openExternalUrl(url, failureMessage) {
   try {
     const supported = await Linking.canOpenURL(url);
@@ -32,6 +33,7 @@ async function openExternalUrl(url, failureMessage) {
   }
 }
 
+// Only render a row when that piece of data exists.
 function DetailRow({ label, value }) {
   if (!value) {
     return null;
@@ -45,6 +47,7 @@ function DetailRow({ label, value }) {
   );
 }
 
+// Compact label used for status, category, distance, and time.
 function MetaPill({ label, tone = 'default' }) {
   if (!label) {
     return null;
@@ -57,6 +60,7 @@ function MetaPill({ label, tone = 'default' }) {
   );
 }
 
+// Bottom sheet that explains one nearby civic alert in plain sections.
 export default function AlertDetailSheet({ alertItem, visible, onClose }) {
   if (!alertItem) {
     return null;

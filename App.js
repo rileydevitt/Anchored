@@ -43,6 +43,7 @@ const DEFAULT_PROFILE = {
   issueRadiusKm: 0.5,
 };
 
+// Keep the saved issue radius inside the range the app UI and map are built for.
 function normalizeIssueRadiusKm(value) {
   const numericValue = Number(value);
 
@@ -86,6 +87,8 @@ export default function App() {
   });
   const previousLiveDataRef = useRef(EMPTY_LIVE_DATA);
 
+  // If notification permission was turned off outside the app, this keeps the
+  // saved profile in sync so the UI does not promise reminders that cannot run.
   const reconcileReminderPermission = async (nextProfile, options = {}) => {
     const { persistIfDisabled = false } = options;
 
@@ -126,6 +129,8 @@ export default function App() {
     });
   }, []);
 
+  // Watch Firebase auth and build the local profile from Firestore once the
+  // user is verified. This decides whether the app shows auth, setup, or home.
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -268,6 +273,8 @@ export default function App() {
     };
   }, [isAuthenticated, profile.notificationsEnabled]);
 
+  // Load the Halifax open-data dashboard whenever the saved address or radius
+  // changes. We also compare the last result so the home screen can show what is new.
   useEffect(() => {
     let isActive = true;
 
@@ -336,6 +343,8 @@ export default function App() {
     };
   }, [hydratingSession, isAuthenticated, profile.address, profile.issueRadiusKm]);
 
+  // Reminders depend on login state, address, notification permission, and the
+  // latest pickup schedule. If any of those go away, remove stale reminders.
   useEffect(() => {
     const syncReminders = async () => {
       try {
@@ -395,6 +404,7 @@ export default function App() {
     }
   };
 
+  // Save a partial profile update to Firestore and mirror it into React state.
   const saveProfilePatch = async (patch) => {
     if (!auth.currentUser) {
       throw new Error('No active session found.');
@@ -412,6 +422,7 @@ export default function App() {
     setProfile((prev) => ({ ...prev, ...patch }));
   };
 
+  // Handle both register and login in one place so the auth screen stays small.
   const handleAuthSubmit = async ({ mode, fullName, email, password }) => {
     try {
       setAuthNotice('');

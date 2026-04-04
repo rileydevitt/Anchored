@@ -4,6 +4,7 @@ const PLACES_AUTOCOMPLETE_URL =
 const HALIFAX_LOCATION = '44.6488,-63.5752';
 const SEARCH_RADIUS_METRES = 30000;
 
+// Ask Google Places for Halifax-focused address suggestions while the user types.
 export async function fetchAddressSuggestions(input, sessionToken) {
   if (!input || input.length < 2) {
     return [];

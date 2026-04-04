@@ -5,6 +5,7 @@ import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors, spacing } from '../constants/theme';
 
+// Shared login/register screen. The mode prop decides which version is shown.
 export default function AuthScreen({ mode, setMode, onSubmit, notice = '' }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -27,6 +28,7 @@ export default function AuthScreen({ mode, setMode, onSubmit, notice = '' }) {
     setError('');
   }, [mode]);
 
+  // Keep submit logic in one place so the UI only needs to pass the form values up.
   const submit = async () => {
     if (!canContinue) {
       return;
