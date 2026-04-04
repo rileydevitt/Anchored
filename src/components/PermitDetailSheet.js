@@ -12,6 +12,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../constants/theme';
 
+// Shared helper for opening external pages while keeping user-facing errors friendly.
 async function openExternalUrl(url, failureMessage) {
   try {
     const supported = await Linking.canOpenURL(url);
@@ -26,6 +27,7 @@ async function openExternalUrl(url, failureMessage) {
   }
 }
 
+// Only show rows for permit data that actually exists.
 function DetailRow({ label, value }) {
   if (!value && value !== 0) {
     return null;
@@ -39,6 +41,7 @@ function DetailRow({ label, value }) {
   );
 }
 
+// Compact badge used near the top of the sheet for quick facts.
 function MetaPill({ label, tone = 'default' }) {
   if (!label) {
     return null;
@@ -51,6 +54,7 @@ function MetaPill({ label, tone = 'default' }) {
   );
 }
 
+// Bottom sheet for one nearby permit with impact, details, and quick actions.
 export default function PermitDetailSheet({ permitItem, visible, onClose }) {
   if (!permitItem) {
     return null;

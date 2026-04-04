@@ -10,6 +10,8 @@ import {
   REMINDER_HOUR_OPTIONS,
 } from '../services/pickupReminders';
 
+// First-time setup screen for the address and reminder preferences the app needs
+// before it can build the dashboard.
 export default function AddressSetupScreen({
   onComplete,
   initialAddress = '',
@@ -23,6 +25,7 @@ export default function AddressSetupScreen({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Save the address and reminder settings together so setup finishes in one step.
   const handleComplete = async () => {
     if (!address.trim()) {
       return;

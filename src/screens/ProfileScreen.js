@@ -10,6 +10,7 @@ import {
   REMINDER_HOUR_OPTIONS,
 } from '../services/pickupReminders';
 
+// Profile screen for saved address, reminder settings, and the nearby-issues radius.
 export default function ProfileScreen({
   profile,
   remindersEnabled,
@@ -40,6 +41,7 @@ export default function ProfileScreen({
     setAddressSaved(false);
   }, [profile.address]);
 
+  // Save the address separately so the user can update it without touching other settings.
   const handleSaveAddress = async () => {
     if (!addressDraft.trim()) {
       return;
@@ -57,6 +59,7 @@ export default function ProfileScreen({
     }
   };
 
+  // Reminder permission can fail, so the screen shows that error instead of silently failing.
   const handleToggleReminders = async (value) => {
     setError('');
 
@@ -175,6 +178,7 @@ export default function ProfileScreen({
   );
 }
 
+// Small reusable row for toggle-based settings.
 function SettingRow({ title, subtitle, icon, value, onChange }) {
   return (
     <View style={styles.settingRow}>

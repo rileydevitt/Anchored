@@ -230,6 +230,8 @@ function toArcGisWhereNumber(value) {
   return String(value);
 }
 
+// ArcGIS where clauses are plain text strings, so we aggressively normalize and
+// restrict input before inserting it into a query.
 function toArcGisWhereText(value, fieldName) {
   const normalized = normalizeUpper(value);
 
@@ -244,6 +246,9 @@ function toArcGisWhereText(value, fieldName) {
   return normalized;
 }
 
+// Break a typed address into the pieces Halifax's civic-address dataset expects.
+// Example: "123 Spring Garden Road, Halifax" becomes civic number, street name,
+// street type, and community.
 function parseAddressInput(address) {
   const [streetLineRaw = '', communityLineRaw = ''] = address.split(',');
   const streetLine = normalizeUpper(streetLineRaw)
@@ -332,6 +337,8 @@ async function resolveAddressCandidate(where) {
   return payload.features?.[0] ?? null;
 }
 
+// Try a few increasingly flexible address matches so normal user input still works
+// even when the full civic record is stored a little differently.
 export async function resolveHalifaxAddress(address) {
   const parsedAddress = parseAddressInput(address);
 
@@ -627,6 +634,8 @@ function toArcGisUtcDateLiteral(daysBack) {
   return `${year}-${month}-${day}`;
 }
 
+// Keep city issues that are more likely to matter to homeowners and filter out
+// low-signal records like planning or marketing notes.
 function isHomeownerRelevantIssue(attributes) {
   const category = String(attributes.REQUEST_CATEGORY || '').trim().toUpperCase();
   const description = String(attributes.DESCRIPTION || '').trim().toUpperCase();
@@ -763,6 +772,7 @@ function toPermitImpactLabel({ estimatedValue, netNewUnits, workType, typeLabel 
   return 'Lower impact';
 }
 
+// Estimate which permits deserve attention by combining closeness, recency, and size.
 function buildPermitWhyItMatters({ distanceKm, estimatedValue, netNewUnits, workType, typeLabel }) {
   const points = [];
 
@@ -804,6 +814,8 @@ function computePermitRelevanceScore({ distanceKm, issuedAt, estimatedValue, net
   return distanceScore + recencyScore + valueScore + unitScore + workTypeBonus;
 }
 
+// Pull recent permits near the saved address and rank them so the most relevant
+// projects appear first in the app.
 export async function fetchNearbyBuildingPermits(
   { latitude, longitude },
   { radiusKm = 0.5, maxPermitAgeDays = DEFAULT_PERMIT_LOOKBACK_DAYS, limit } = {}
@@ -930,6 +942,8 @@ export async function fetchNearbyBuildingPermits(
   return permits;
 }
 
+// Pull recent Cityworks issues near the saved address and reduce them into
+// simple alert cards the UI can sort and display.
 export async function fetchNearbyCityworksIssues(
   { latitude, longitude },
   { radiusKm = 0.5, limit, maxIssueAgeDays = DEFAULT_ISSUE_LOOKBACK_DAYS } = {}
@@ -1017,6 +1031,8 @@ export async function fetchNearbyCityworksIssues(
   return sortedIssues;
 }
 
+// Main dashboard loader: resolve the address first, then fetch collection,
+// issues, and permits in parallel.
 export async function loadHalifaxDashboardData(address, {
   issueRadiusKm = 0.5,
 } = {}) {

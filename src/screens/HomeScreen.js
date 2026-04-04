@@ -15,6 +15,7 @@ const iconForType = {
 const HOME_ALERTS_PER_BUCKET = 4;
 const HOME_PERMITS_LIMIT = 4;
 
+// Pick a simple icon based on the collection item label.
 function iconForCollectionItem(item) {
   const value = item.toLowerCase();
 
@@ -29,6 +30,7 @@ function iconForCollectionItem(item) {
   return 'calendar-today';
 }
 
+// Zone labels help with waste routing, but they are not useful as list items in the UI.
 function isZoneLabel(value) {
   return value.toLowerCase().includes('zone');
 }
@@ -52,6 +54,7 @@ function byClosestThenNewest(left, right) {
   return (right.initiatedAt || 0) - (left.initiatedAt || 0);
 }
 
+// Main home dashboard: collection info first, then the most relevant nearby activity.
 export default function HomeScreen({
   address,
   nextCollection,
@@ -86,6 +89,7 @@ export default function HomeScreen({
   const hasNewInsights =
     Number(liveDataDelta?.newAlertCount || 0) > 0 || Number(liveDataDelta?.newPermitCount || 0) > 0;
 
+  // Open links safely so a device that cannot handle the action still gives a clear message.
   const openExternalUrl = async (url, failureMessage) => {
     try {
       const supported = await Linking.canOpenURL(url);
@@ -100,6 +104,7 @@ export default function HomeScreen({
     }
   };
 
+  // Export the upcoming pickup schedule into the user's calendar and summarize the result.
   const handleExportCalendar = async () => {
     setExportingCalendar(true);
 

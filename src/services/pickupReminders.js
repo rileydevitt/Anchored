@@ -10,6 +10,7 @@ export const REMINDER_HOUR_OPTIONS = [18, 20, 21];
 
 let notificationsInitialized = false;
 
+// Only allow reminder times that the app UI offers.
 export function normalizeReminderHour(value) {
   const numericValue = Number(value);
 
@@ -49,6 +50,7 @@ function normalizeServiceLabel(items) {
     .join(' + ');
 }
 
+// Reminders are sent the evening before pickup, not on pickup day itself.
 function buildReminderDate(dateISO, reminderHour) {
   const normalizedHour = normalizeReminderHour(reminderHour);
   const reminderDate = new Date(`${dateISO}T${String(normalizedHour).padStart(2, '0')}:00:00`);
@@ -70,6 +72,7 @@ async function getAnchoredReminderRequests() {
   );
 }
 
+// Set up notification behavior once so the rest of the app can safely schedule reminders.
 export async function initializePickupReminders() {
   if (!notificationsInitialized) {
     Notifications.setNotificationHandler({
@@ -132,6 +135,7 @@ export async function cancelPickupReminders() {
   return requests.length;
 }
 
+// Replace old reminder jobs with fresh ones based on the latest schedule.
 export async function syncPickupReminders({ address, services, reminderHour = DEFAULT_REMINDER_HOUR }) {
   await initializePickupReminders();
 

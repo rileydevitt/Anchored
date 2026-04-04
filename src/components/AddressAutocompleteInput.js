@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../constants/theme';
 import { fetchAddressSuggestions } from '../services/googlePlaces';
 
+// Google Places groups related keystrokes into one search session.
 function generateSessionToken() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 }
@@ -28,6 +29,7 @@ export default function AddressAutocompleteInput({ label, placeholder, value, on
     return () => clearTimeout(debounceTimer.current);
   }, []);
 
+  // Wait briefly before searching so we do not call the Places API on every keypress.
   const handleChangeText = (text) => {
     setQuery(text);
     setIsSelected(false);
@@ -50,6 +52,7 @@ export default function AddressAutocompleteInput({ label, placeholder, value, on
     }, 300);
   };
 
+  // Once the user picks a suggestion, lock that value in and start a fresh search session.
   const handleSelect = (description) => {
     setQuery(description);
     setIsSelected(true);

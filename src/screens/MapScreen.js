@@ -26,6 +26,7 @@ const neighbourhoodMarkerColor = '#1E7A53';
 const permitMarkerColor = '#004B8D';
 const homeMarkerColor = '#0B2F5B';
 
+// Show fewer markers when the search radius is small so the map stays readable.
 function getMapMarkerDisplayLimit(radiusKm) {
   if (radiusKm <= 0.2) {
     return 15;
@@ -77,6 +78,8 @@ function byClosestThenNewest(left, right) {
   return (right.initiatedAt || 0) - (left.initiatedAt || 0);
 }
 
+// Keep a mix of urgent and neighbourhood alerts on screen instead of letting
+// one big group use every marker slot.
 function pickDisplayedAlerts(immediateAlerts, neighbourhoodAlerts, markerLimit) {
   if (markerLimit <= 0) {
     return [];
@@ -116,6 +119,8 @@ function markerColorForAlert(alert) {
   return alert.urgencyBucket === 'immediate' ? immediateMarkerColor : neighbourhoodMarkerColor;
 }
 
+// Build a region that fits the saved address and nearby map points while also
+// respecting the chosen search radius.
 function buildRegion(resolvedAddress, nearbyAlerts, nearbyPermits, issueRadiusKm) {
   const firstPoint = nearbyAlerts[0] || nearbyPermits[0];
   const latitude = resolvedAddress?.latitude ?? firstPoint?.latitude ?? DEFAULT_REGION.latitude;
@@ -198,54 +203,55 @@ export default function MapScreen({
     if (can) Linking.openURL(url);
   };
 
-const captureAndRedirect = async () => {
-  try {
-    const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync();
-    if (camStatus !== 'granted') {
-      Alert.alert('Camera permission required', 'Cannot open camera. Redirecting to the 311 form.');
-      open311Form();
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({ 
-      quality: 0.8,
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
-    });
-    
-    const cancelled = result.canceled ?? result.assets?.length === 0;
-    if (cancelled) {
-      open311Form();
-      return;
-    }
-
-    const uri = result.assets?.[0]?.uri ?? result.uri;
-    if (!uri) {
-      open311Form();
-      return;
-    }
-
-    // Request AFTER capture so the user has context for why you need it
-    const { status: mediaStatus } = await MediaLibrary.requestPermissionsAsync();
-
-    if (mediaStatus === 'granted') {
-      try {
-        await MediaLibrary.saveToLibraryAsync(uri); // simpler than createAsset + createAlbum
-        Alert.alert('Photo saved', 'Your photo was saved to your gallery.');
-      } catch (saveErr) {
-        console.warn('Save error:', saveErr);
-        Alert.alert('Could not save photo', 'The photo could not be saved, but you can still submit the report.');
+  // Let the user take a photo first, try to save it locally, and then send
+  // them to Halifax's report form.
+  const captureAndRedirect = async () => {
+    try {
+      const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      if (camStatus !== 'granted') {
+        Alert.alert('Camera permission required', 'Cannot open camera. Redirecting to the 311 form.');
+        open311Form();
+        return;
       }
-    } else {
-      Alert.alert('Permission denied', 'Photo was not saved to gallery.');
-    }
 
-    open311Form();
-  } catch (e) {
-    console.warn('captureAndRedirect error:', e);
-    open311Form();
-  }
-};
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 0.8,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+      });
+
+      const cancelled = result.canceled ?? result.assets?.length === 0;
+      if (cancelled) {
+        open311Form();
+        return;
+      }
+
+      const uri = result.assets?.[0]?.uri ?? result.uri;
+      if (!uri) {
+        open311Form();
+        return;
+      }
+
+      const { status: mediaStatus } = await MediaLibrary.requestPermissionsAsync();
+
+      if (mediaStatus === 'granted') {
+        try {
+          await MediaLibrary.saveToLibraryAsync(uri);
+          Alert.alert('Photo saved', 'Your photo was saved to your gallery.');
+        } catch (saveErr) {
+          console.warn('Save error:', saveErr);
+          Alert.alert('Could not save photo', 'The photo could not be saved, but you can still submit the report.');
+        }
+      } else {
+        Alert.alert('Permission denied', 'Photo was not saved to gallery.');
+      }
+
+      open311Form();
+    } catch (e) {
+      console.warn('captureAndRedirect error:', e);
+      open311Form();
+    }
+  };
 
   const handleReportPress = () => {
     Alert.alert(
