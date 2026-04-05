@@ -24,12 +24,11 @@ export default function ProfileScreen({
 }) {
   const [addressDraft, setAddressDraft] = useState(profile.address || '');
   const [addressConfirmed, setAddressConfirmed] = useState(Boolean(profile.address));
-  const [locationEnabled, setLocationEnabled] = useState(true);
-  const [cameraEnabled, setCameraEnabled] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressSaved, setAddressSaved] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState('');
+  const profileHeading = profile.name || profile.email || 'Your account';
 
   const formattedRadiusLabel = issueRadiusKm < 1
     ? `${Math.round(issueRadiusKm * 1000)} m`
@@ -89,7 +88,7 @@ export default function ProfileScreen({
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>Profile & Settings</Text>
-      <Text style={styles.subtitle}>{profile.email}</Text>
+      <Text style={styles.subtitle}>{profileHeading}</Text>
 
       <View style={styles.card}>
         <AddressAutocompleteInput
@@ -145,8 +144,6 @@ export default function ProfileScreen({
             })}
           </View>
         </View>
-        <SettingRow title="Location" value={locationEnabled} onChange={setLocationEnabled} />
-        <SettingRow title="Camera" value={cameraEnabled} onChange={setCameraEnabled} />
       </View>
 
       <View style={styles.card}>

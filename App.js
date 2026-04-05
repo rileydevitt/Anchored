@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, StatusBar, StyleSheet, Text, View } from 'react-native';
-import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   createUserWithEmailAndPassword,
@@ -604,7 +604,6 @@ export default function App() {
                 <MaterialCommunityIcons name="anchor" size={24} color={colors.halifaxBlue} />
                 <Text style={styles.headerTitle}>Anchored</Text>
               </View>
-              <MaterialIcons name="notifications" size={24} color={colors.text} />
             </View>
           ) : null}
 
@@ -632,7 +631,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(249, 250, 251, 0.95)',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 18,
   },
   headerLeft: {

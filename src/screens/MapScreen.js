@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View, Alert, Linking } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import MapView, { Circle, Marker } from 'react-native-maps';
 import AlertDetailSheet from '../components/AlertDetailSheet';
 import PermitDetailSheet from '../components/PermitDetailSheet';
@@ -207,8 +207,12 @@ export default function MapScreen({
   // them to Halifax's report form.
   const captureAndRedirect = async () => {
     try {
-      const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync();
-      if (camStatus !== 'granted') {
+      const currentCameraPermission = await ImagePicker.getCameraPermissionsAsync();
+      const cameraPermission = currentCameraPermission.granted
+        ? currentCameraPermission
+        : await ImagePicker.requestCameraPermissionsAsync();
+
+      if (cameraPermission.status !== 'granted') {
         Alert.alert('Camera permission required', 'Cannot open camera. Redirecting to the 311 form.');
         open311Form();
         return;
@@ -232,9 +236,12 @@ export default function MapScreen({
         return;
       }
 
-      const { status: mediaStatus } = await MediaLibrary.requestPermissionsAsync();
+      const currentMediaPermission = await MediaLibrary.getPermissionsAsync();
+      const mediaPermission = currentMediaPermission.granted
+        ? currentMediaPermission
+        : await MediaLibrary.requestPermissionsAsync();
 
-      if (mediaStatus === 'granted') {
+      if (mediaPermission.status === 'granted') {
         try {
           await MediaLibrary.saveToLibraryAsync(uri);
           Alert.alert('Photo saved', 'Your photo was saved to your gallery.');
@@ -275,10 +282,14 @@ export default function MapScreen({
                 latitude: resolvedAddress.latitude,
                 longitude: resolvedAddress.longitude,
               }}
-              pinColor={homeMarkerColor}
+              anchor={{ x: 0.5, y: 0.5 }}
               title="Saved address"
               description={resolvedAddress.canonicalAddress}
-            />
+            >
+              <View style={[styles.markerBadge, styles.homeMarkerBadge]}>
+                <MaterialCommunityIcons name="anchor" size={16} color="#fff" />
+              </View>
+            </Marker>
             <Circle
               center={{
                 latitude: resolvedAddress.latitude,
@@ -474,6 +485,9 @@ const styles = StyleSheet.create({
   },
   permitMarkerBadge: {
     backgroundColor: permitMarkerColor,
+  },
+  homeMarkerBadge: {
+    backgroundColor: homeMarkerColor,
   },
   bottomStack: {
     gap: spacing.sm,
